@@ -1,0 +1,24 @@
+#
+# Makefile fragment for the Yu-OS kernel.
+# This is NOT a complete makefile;
+# you must run GNU make in the top-level directory
+# Where the GNUmakefile is located.
+#
+
+BOOT_OBJS := $(OBJDIR)/boot/boot.o $(OBJDIR)/boot/main.o
+
+$(OBJDIR)/boot/%.o: boot/%.c
+	@echo + cc -Os $<
+	@mkdir -p $(@D)
+	@$(CC) -nostdinc $(KERN_CFLAGS) -Os -c -o $@ $<
+
+$(OBJDIR)/boot/%.o: boot/%.S
+	@echo + cc -Os $<
+	@mkdir -p $(@D)
+	@$(CC) -nostdinc $(KERN_CFLAGS) -c -o $@ $<
+
+$(OBJDIR)/boot/boot: $(BOOT_OBJS)
+	@echo + ld boot/boot
+	@$(LD) $(LDFLAGS) -N -e start -Ttext 0x7C00 -o $@.out $^
+	@$(OBJCOPY) -S -O binary -j .text $@.out $@
+	@perl boot/sign.pl $(OBJDIR)/boot/boot
