@@ -4,6 +4,7 @@
 
 #include <inc/types.h>
 #include <inc/error.h>
+#include <inc/string.h>
 #include <inc/stdio.h>
 #include <inc/stdarg.h>
 
@@ -16,16 +17,64 @@
  * THe integer may be positive or negative,
  * so that -E_NO_MEM and E_NO_MEM are equivalent.
  */
-
  static const char * const error_string[MAXERROR] =
- {
+{
  	[E_UNSPECIFIED] = "unspecified error",
  	[E_BAD_ENV] = "bad environment",
  	[E_INVAL] = "invalid parameter",
  	[E_NO_MEM] = "out of memory",
  	[E_NO_FREE_ENV] = "out of environments",
  	[E_FAULT] = "segmentation fault",
- };
+};
+
+/*
+ * Print a number (base <= 16) in reverse order,
+ * using specified putch function and associated pointer putdat.
+ */
+static void
+printnum(void (*putch)(int, void*), void *putdat,
+	unsigned long long num, unsigned base, int width, int padc)
+{
+	// first recursively print all preceding (more significant) digits
+	if (num >= base) {
+		printnum(putch, putdat, num / base, base, width - 1, padc);
+	} else {
+		// print any needed pad characters before first digit
+		while(--width > 0)
+			putch(padc, putdat);
+	}
+
+	// then print this (the least significant) digit
+	putch("0123456789abcdef"[num % base], putdat);
+}
+
+// Get an unsigned int of various possible sizes from a varargs list,
+// depending on the lflag parameter.
+static unsigned long long
+getuint(va_list *ap, int lflag)
+{
+	if (lflag >= 2) {
+		return va_arg(*ap, unsigned long long);
+	} else if (lflag) {
+		return va_arg(*ap, unsigned long);
+	} else {
+		return va_arg(*ap, unsigned int);
+	}
+}
+
+// Same as getuint but signed - can't use getuint
+// because of sign extension
+static long long
+getint(va_list *ap, int lflag)
+{
+	if (lflag >= 2) {
+		return va_arg(*ap, long long);
+	} else if (lflag) {
+		return va_arg(*ap, long);
+	} else {
+		return va_arg(*ap, int);
+	}
+}
 
 void
 vprintfmt(void (*putch)(int, void*), void *putdat, const char *fmt, va_list ap)
@@ -43,7 +92,7 @@ vprintfmt(void (*putch)(int, void*), void *putdat, const char *fmt, va_list ap)
 			}
 			putch(ch, putdat);
 		}
-/*
+
 		// Process a %-escape sequence
 		padc = ' ';
 		width = -1;
@@ -125,6 +174,28 @@ vprintfmt(void (*putch)(int, void*), void *putdat, const char *fmt, va_list ap)
 			}
 			break;
 
+		// string
+		case 's':
+			if ((p = va_arg(ap, char *)) == NULL) {
+				p = "(null)";
+			}
+			if (width > 0 && padc != '-') {
+				for (width -= strnlen(p, precision); width > 0; width--) {
+					putch(padc, putdat);
+				}
+			}
+			for (; (ch = *p++) != '\0' && (precision < 0 || --precision >= 0); width--) {
+				if (altflag && (ch < ' ' || ch > '~')) {
+					putch('?', putdat);
+				} else {
+					putch(ch, putdat);
+				}
+			}
+			for (; width > 0; width--) {
+				putch(' ', putdat);
+			}
+			break;
+
 		// (signed) decimal
 		case 'd':
 			num = getint(&ap, lflag);
@@ -160,6 +231,22 @@ vprintfmt(void (*putch)(int, void*), void *putdat, const char *fmt, va_list ap)
 			putch(ch, putdat);
 			break;
 
-		}*/
+		// unrecognized escape sequence - just print it literally
+		default:
+			putch('%', putdat);
+			for (fmt--; fmt[-1] != '%'; fmt--)
+				/* do nothing */;
+			break;
+		}
 	}
+}
+
+void
+printfmt(void (*putch)(int, void*), void *putdat, const char *fmt, ...)
+{
+	va_list ap;
+
+	va_start(ap, fmt);
+	vprintfmt(putch, putdat, fmt, ap);
+	va_end(ap);
 }
