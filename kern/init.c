@@ -17,4 +17,6 @@ i386_init(void)
 	cons_init();
 
 	cprintf("Hello, I'm Yu-OS\n");
+	char *line = readline("K>");
+	cprintf("readline: %s\n", line);
 }
