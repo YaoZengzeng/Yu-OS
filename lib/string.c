@@ -19,6 +19,28 @@ strnlen(const char *s, size_t size)
 	return n;
 }
 
+// Return a pointer to the first occurance of 'c' in 's'.
+// or a null pointer if the string has no 'c'.
+char *
+strchr(const char *s, char c)
+{
+	for (; *s; s++) {
+		if (*s == c) {
+			return (char *) s;
+		}
+	}
+	return 0;
+}
+
+int
+strcmp(const char *p, const char *q)
+{
+	while (*p && *p == *q) {
+		p++, q++;
+	}
+	return (int) ((unsigned char) *p - (unsigned char) *q);
+}
+
 #if ASM
 void *
 memset(void *v, int c, size_t n)

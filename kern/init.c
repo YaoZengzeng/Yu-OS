@@ -1,6 +1,7 @@
 #include <inc/string.h>
 #include <inc/stdio.h>
 #include <kern/console.h>
+#include <kern/monitor.h>
 
 void
 i386_init(void)
@@ -17,6 +18,9 @@ i386_init(void)
 	cons_init();
 
 	cprintf("Hello, I'm Yu-OS\n");
-	char *line = readline("K>");
-	cprintf("readline: %s\n", line);
+
+	// Drop into the kernel monitor.
+	while (1) {
+		monitor(NULL);
+	}
 }

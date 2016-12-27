@@ -4,6 +4,9 @@
 #include <inc/types.h>
 
 int strnlen(const char *s, size_t size);
+char * strchr(const char *s, char c);
+int strcmp(const char *s1, const char *s2);
+
 void * memmove(void *dst, const void *src, size_t len);
 void * memset(void *dst, int c, size_t len);
 
