@@ -6,6 +6,7 @@
 #include <inc/x86.h>
 #include <inc/memlayout.h>
 
+#include <kern/kdebug.h>
 #include <kern/monitor.h>
 
 struct Command {
@@ -55,6 +56,7 @@ int
 mon_backtrace(int argc, char **argv, struct Trapframe *tf)
 {
 	uint32_t *ebp;
+	struct Eipdebuginfo e;
 
 	cprintf("Stack backtrace:\n");
 
@@ -62,6 +64,11 @@ mon_backtrace(int argc, char **argv, struct Trapframe *tf)
 	while (ebp != 0) {
 		cprintf("ebp %08x, eip %08x, args %08x %08x %08x %08x %08x\n", \
 			ebp, ebp[1], ebp[2], ebp[3], ebp[4], ebp[5], ebp[6]);
+		if (debuginfo_eip(ebp[1], &e) != 0) {
+			return -1;
+		}
+		cprintf("%s:%d: %.*s+%d\n", \
+			e.eip_file, e.eip_line, e.eip_fn_namelen, e.eip_fn_name, ebp[1] - e.eip_fn_addr);
 		ebp = (uint32_t *)ebp[0];
 	}
 
