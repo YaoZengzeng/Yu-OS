@@ -31,9 +31,43 @@
 
 #define ULIM		(MMIOBASE)
 
+/*
+ * User read-only mappings! Anything below here til UTOP are readonly to user.
+ * They are global pages mapped in at env allocation time.
+ */
+
+// User read-only virtual page table (see 'uvpt' below)
+#define UVPT 		(ULIM - PTSIZE)
+// Read-only copies of the Page structures
+#define UPAGES		(UVPT - PTSIZE)
+// Read-only copies of the global env structures
+#define UENVS		(UPAGES - PTSIZE)
+
 #ifndef __ASSEMBLER__
 typedef uint32_t	pte_t;
 typedef uint32_t	pde_t;
+
+/*
+ * Page descriptor structures, mapped at UPAGES.
+ * Read/write to the kernel, read-only to user programs.
+ *
+ * Each struct PageInfo stores metadata for one physcial page.
+ * It is NOT the physical page itself, but there is a one-to-one
+ * correspondence between physcial pages and struct PageInfo's.
+ * You can map a struct PageInfo * to the corresponding physical address
+ * with page2pa() in kern/pmap.h.
+ */
+struct PageInfo {
+	// Next page on the free list.
+	struct PageInfo *pp_link;
+
+	// pp_ref is the count of pointers (usually in page table entries)
+	// to this page, for pages allocated using page_alloc.
+	// Pages allocated at boot time using pmap.c's
+	// boot_alloc do not have valid reference count fields.
+
+	uint16_t pp_ref;
+};
 #endif /* !__ASSEMBLER__ */
 
 #endif /* !YUOS_INC_MEMLAYOUT_H */

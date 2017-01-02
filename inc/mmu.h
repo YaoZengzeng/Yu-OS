@@ -7,9 +7,36 @@
  * the %cr0, %cr4, and %eflags registers, and traps.
  */
 
- /*
-  * Paging data structures and constants.
-  */
+/*
+ * Paging data structures and constants.
+ */
+// A linear address 'la' has a three-part structure as follows:
+//
+// +--------10------+-------10-------+---------12----------+
+// | Page Directory |   Page Table   | Offset within Page  |
+// |      Index     |      Index     |                     |
+// +----------------+----------------+---------------------+
+//  \--- PDX(la) --/ \--- PTX(la) --/ \---- PGOFF(la) ----/
+//  \---------- PGNUM(la) ----------/
+//
+// The PDX, PTX, PGOFF, and PGNUM macros decompose linear addresses as shown.
+// To construct a linear address la from PDX(la), PTX(la), and PGOFF(la),
+// use PGADDR(PDX(la), PTX(la), PGOFF(la)).
+
+// page number field of address
+#define PGNUM(la) 		(((uintptr_t) (la)) >> PTXSHIFT)
+
+// page directory index
+#define PDX(la) 		((((uintptr_t) (la)) >> PDXSHIFT) & 0x3FF)
+
+// page table index
+#define PTX(la) 		((((uintptr_t) (la)) >> PTXSHIFT) & 0x3FF)
+
+// offset in page
+#define PGOFF(la) 		(((uintptr_t) (la)) & 0xFFF)
+
+// construct linear addresses from indexes and offset
+#define PGADDR(d, t, o) ((void*) ((d) << PDXSHIFT | (t) << PTXSHIFT | (o)))
 
 // Page directory and page table constants.
 #define NPDENTRIES	1024	// page directory entries per page directory
