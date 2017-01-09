@@ -37,7 +37,21 @@ _kaddr(const char *file, int line, physaddr_t pa)
 	return (void *)(pa + KERNBASE);
 }
 
+enum {
+	// For page_alloc, zero the returned physical page.
+	ALLOC_ZERO = 1<<0,
+};
+
 void mem_init(void);
+struct PageInfo *page_alloc(int alloc_flags);
+void page_free(struct PageInfo *pp);
+struct PageInfo *page_lookup(pde_t *pgdir, void *va, pte_t **pte_store);
+int page_insert(pde_t *pgdir, struct PageInfo *pp, void *va, int perm);
+void page_remove(pde_t *pgdir, void *va);
+struct PageInfo *page_lookup(pde_t *pgdir, void *va, pte_t **pte_store);
+void page_decref(struct PageInfo *pp);
+
+void tlb_invalidate(pde_t *pgdir, void *va);
 
 void page_init(void);
 
@@ -47,10 +61,21 @@ page2pa(struct PageInfo *pp)
 	return (pp - pages) << PGSHIFT;
 }
 
+static inline struct PageInfo*
+pa2page(physaddr_t pa)
+{
+	if (PGNUM(pa) >= npages) {
+		panic("pa2page called with invalid pa");
+	}
+	return &pages[PGNUM(pa)];
+}
+
 static inline void*
 page2kva(struct PageInfo *pp)
 {
 	return KADDR(page2pa(pp));
 }
+
+pte_t *pgdir_walk(pde_t *pgdir, const void *va, int create);
 
 #endif /* YUOS_KERN_PMAP_H */

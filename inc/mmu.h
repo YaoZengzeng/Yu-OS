@@ -66,6 +66,9 @@
 // the hardware, so user processes are allowed to set them arbitrarily.
 #define PTE_AVAIL 	0xE00	// Available for software use
 
+// Address in page table or page directory entry
+#define PTE_ADDR(pte) ((physaddr_t) (pte) & ~0xFFF)
+
 // Control Register flags
 #define CR0_PE		0x00000001	// Protection Enable
 #define CR0_MP		0x00000002	// Monitor coProcessor
