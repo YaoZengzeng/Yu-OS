@@ -4,6 +4,7 @@
 #include <inc/memlayout.h>
 #include <inc/string.h>
 #include <inc/error.h>
+#include <inc/types.h>
 
 #include <kern/pmap.h>
 #include <kern/kclock.h>
@@ -55,8 +56,10 @@ i386_detect_memory(void)
 // Set up memory mappings above UTOP.
 // -----------------------------------------------------------------
 
+static void boot_map_region(pde_t *pgdir, uintptr_t va, size_t size, physaddr_t pa, int perm);
 static void check_page_free_list(bool only_low_memory);
 static void check_page_alloc(void);
+static void check_kern_pgdir(void);
 static void check_page(void);
 static physaddr_t check_va2pa(pde_t *pgdir, uintptr_t va);
 
@@ -143,6 +146,44 @@ mem_init(void)
 	check_page_free_list(1);
 	check_page_alloc();
 	check_page();
+
+	///////////////////////////////////////////////////////////////////////
+	// Now we set up virtual memory
+
+	///////////////////////////////////////////////////////////////////////
+	// Map 'pages' read-only by the user at linear address UPAGES
+	// Permissions:
+	// 		- the new image at UPAGES -- kernel R, user R
+	//		 (ie. perm = PTE_U | PTE_P)
+	//		- pages itself -- kernel RW, user NONE
+	size_t size = ROUNDUP(npages*sizeof(struct PageInfo), PGSIZE);
+	boot_map_region(kern_pgdir, UPAGES, size, PADDR(pages), PTE_U|PTE_P);
+
+	/////////////////////////////////////////////////////////////////////////
+	// Use the physical memory that 'bootstack' refers to as the kernel
+	// stack. The kernel stack grows down from virtual address KSTACKTOP.
+	// We consider the entire range from [KSTACKTOP-PTSIZE, KSTACKTOP)
+	// to be the kernel stack, but break this into two pieces:
+	//		* [KSTACKTOP-KSTKSIZE, KSTACKTOP) -- backed by physical memory
+	//		* [KSTACKTOP-PTSIZE, KSTACKTOP-KSTKSIZE) -- not backed; so if
+	//			the kernel overflows its stack, it will fault rather than
+	//			overwrite memory. Known as a "guard page".
+	// Permission: kernel RW, user NONE
+	boot_map_region(kern_pgdir, KSTACKTOP-KSTKSIZE, KSTKSIZE, PADDR(bootstack), PTE_W|PTE_P);
+
+	///////////////////////////////////////////////////////////////////////////
+	// Map all of physical memory at KERNBASE.
+	// Ie.	the VA range [KERNBASE, 2^32) should map to
+	//		the PA range [0, 2^32 - KERNBASE)
+	// We might not have 2^32 - KERNBASE bytes of physical memory, but
+	// we just set up the mapping anyway.
+	// Permissions:	kernel RW, user NONE
+	size = (size_t)(0x100000000 - KERNBASE);
+	boot_map_region(kern_pgdir, KERNBASE, size, 0, PTE_W|PTE_P);
+
+	// Check that the initial page directory has been set up correctly.
+	check_kern_pgdir();
+
 }
 
 // -------------------------------------------------------------
@@ -421,6 +462,28 @@ tlb_invalidate(pde_t *pgdir, void *va)
 	// Flush the entry only if we're modifying the current address space.
 	// For now, there is only one address space, so always invalidate.
 	invlpg(va);
+}
+
+//
+// Map [va, va+size) of virtual address space to physical [pa, pa+size)
+// in the page table rooted at pgdir. Size is a multiple of PGSIZE, and
+// va and pa are both page-aligned.
+// User permission bits perm|PTE_P for the entries.
+//
+// This function is only intended to set up the 'static' mappings
+// above UTOP. As such, it should *not* change the pp_ref field on the
+// mapped pages
+//
+static void
+boot_map_region(pde_t *pgdir, uintptr_t va, size_t size, physaddr_t pa, int perm)
+{
+	size_t i;
+	pte_t *pte;
+
+	for (i = 0; i < size; i += PGSIZE) {
+		pte = pgdir_walk(pgdir, (void*) va + i, true);
+		*pte = (pa + i)|perm|PTE_P;
+	}
 }
 
 // --------------------------------------------------------------
@@ -747,4 +810,58 @@ check_va2pa(pde_t *pgdir, uintptr_t va)
 	}
 
 	return PTE_ADDR(p[PTX(va)]);
+}
+
+//
+// Checks that the kernel part of virtual address space
+// has been setup roughly correctly (by mem_init()).
+//
+// This function doesn't test every corner case,
+// but it is a pretty good sanity check.
+//
+
+static void
+check_kern_pgdir(void)
+{
+	uint32_t i, n;
+	pde_t *pgdir;
+
+	pgdir = kern_pgdir;
+
+	// check pages array
+	n = ROUNDUP(npages*sizeof(struct PageInfo), PGSIZE);
+	for (i = 0; i < n; i += PGSIZE) {
+		assert(check_va2pa(pgdir, UPAGES + i) == PADDR(pages) + i);
+	}
+
+	// check phys mem
+	for (i = 0; i < npages * PGSIZE; i += PGSIZE) {
+		assert(check_va2pa(pgdir, KERNBASE + i) == i);
+	}
+
+	// check kernel stack
+	for (i = 0; i < KSTKSIZE; i += PGSIZE) {
+		assert(check_va2pa(pgdir, KSTACKTOP - KSTKSIZE + i) == PADDR(bootstack) + i);
+	}
+	assert(check_va2pa(pgdir, KSTACKTOP - PTSIZE) == ~0);
+
+	// check PDE permissions
+	for (i = 0; i < NPDENTRIES; i++) {
+		switch (i) {
+		case PDX(UVPT):
+		case PDX(KSTACKTOP-1):
+		case PDX(UPAGES):
+			assert(pgdir[i] & PTE_P);
+			break;
+		default:
+			if (i >= PDX(KERNBASE)) {
+				assert(pgdir[i] & PTE_P);
+				assert(pgdir[i] & PTE_W);
+			} else {
+				assert(pgdir[i] == 0);
+			}
+			break;
+		}
+	}
+	cprintf("check_kern_pgdir() succeeded!\n");
 }
