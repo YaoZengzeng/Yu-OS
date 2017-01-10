@@ -62,6 +62,7 @@ static void check_page_alloc(void);
 static void check_kern_pgdir(void);
 static void check_page(void);
 static physaddr_t check_va2pa(pde_t *pgdir, uintptr_t va);
+static void check_page_installed_pgdir(void);
 
 // This simple physical memory allocator is used only while Yu-OS is setting
 // up its virtual memory system. page_alloc() is the real allocator.
@@ -184,6 +185,25 @@ mem_init(void)
 	// Check that the initial page directory has been set up correctly.
 	check_kern_pgdir();
 
+	// Switch from the minimal entry page directory to the full kern_pgdir
+	// page table we just created. Our instruction pointer should be
+	// somewhere between KERNBASE and KERNBASE+4MB right now, which is
+	// mapped the same way by both page tables.
+	//
+	// If the machine reboots at this point, probably set up kern_pgdir wrong.
+	lcr3(PADDR(kern_pgdir));
+
+	check_page_free_list(0);
+
+	// entry.S set the really important flags in cr0 (including enabling
+	// paging). Here we configure the rest of the flags that we care about.
+	cr0 = rcr0();
+	cr0 |= CR0_PE|CR0_PG|CR0_AM|CR0_WP|CR0_NE|CR0_MP;
+	cr0 &= ~(CR0_TS|CR0_EM);
+	lcr0(cr0);
+
+	// Some more checks, only possible after kern_pgdir is enablled
+	check_page_installed_pgdir();
 }
 
 // -------------------------------------------------------------
@@ -864,4 +884,46 @@ check_kern_pgdir(void)
 		}
 	}
 	cprintf("check_kern_pgdir() succeeded!\n");
+}
+
+// check page_insert, page_remove, &c, with an installed kern_pgdir
+static void
+check_page_installed_pgdir(void)
+{
+	struct PageInfo *pp, *pp0, *pp1, *pp2;
+	struct PageInfo *fl;
+	pte_t *ptep, *ptep1;
+	uintptr_t va;
+	int i;
+
+	// check that we can read and write installed pages
+	pp1 = pp2 = 0;
+	assert((pp0 = page_alloc(0)));
+	assert((pp1 = page_alloc(0)));
+	assert((pp2 = page_alloc(0)));
+	page_free(pp0);
+	memset(page2kva(pp1), 1, PGSIZE);
+	memset(page2kva(pp2), 2, PGSIZE);
+	page_insert(kern_pgdir, pp1, (void*) PGSIZE, PTE_W);
+	assert(pp1->pp_ref == 1);
+	assert(*(uint32_t *)PGSIZE == 0x01010101U);
+	page_insert(kern_pgdir, pp2, (void*) PGSIZE, PTE_W);
+	assert(*(uint32_t *)PGSIZE == 0x02020202U);
+	assert(pp2->pp_ref == 1);
+	assert(pp1->pp_ref == 0);
+	*(uint32_t *)PGSIZE = 0x03030303U;
+	assert(*(uint32_t *)page2kva(pp2) == 0x03030303U);
+	page_remove(kern_pgdir, (void*) PGSIZE);
+	assert(pp2->pp_ref == 0);
+
+	// forcibly take pp0 back
+	assert(PTE_ADDR(kern_pgdir[0]) == page2pa(pp0));
+	kern_pgdir[0] = 0;
+	assert(pp0->pp_ref == 1);
+	pp0->pp_ref = 0;
+
+	// free the pages we took
+	page_free(pp0);
+
+	cprintf("check_page_installed_pgdir() succeeded!\n");
 }
