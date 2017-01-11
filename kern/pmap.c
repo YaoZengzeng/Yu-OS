@@ -8,6 +8,7 @@
 
 #include <kern/pmap.h>
 #include <kern/kclock.h>
+#include <kern/env.h>
 
 // These variables are set by i386_detect_memory()
 size_t npages;			// Amount of physical memory (in pages)
@@ -137,6 +138,9 @@ mem_init(void)
 	pages = (struct PageInfo *) boot_alloc(npages * sizeof(struct PageInfo));
 	memset(pages, 0, npages * sizeof(struct PageInfo));
 
+	// Make 'envs' point to an array of size 'NENV' of 'struct Env'.
+	envs = (struct Env *) boot_alloc(NENV * sizeof(struct Env));
+
 	// Now that we've allocated the initial kernel data structures, we set
 	// up the list of free physical pages. Once we've done so, all further
 	// memory management will go through the page_* functions. In
@@ -157,8 +161,17 @@ mem_init(void)
 	// 		- the new image at UPAGES -- kernel R, user R
 	//		 (ie. perm = PTE_U | PTE_P)
 	//		- pages itself -- kernel RW, user NONE
-	size_t size = ROUNDUP(npages*sizeof(struct PageInfo), PGSIZE);
+	size_t size = ROUNDUP(npages * sizeof(struct PageInfo), PGSIZE);
 	boot_map_region(kern_pgdir, UPAGES, size, PADDR(pages), PTE_U|PTE_P);
+
+	/////////////////////////////////////////////////////////////////////////
+	// Map the 'envs' array read-only by the user at linear address UENVS
+	// (ie. perm = PTE_U | PTE_P)
+	// Permissions:
+	//		- the new image at UENVS  -- kernel R, user R
+	//		- envs itself -- kernel RW, user NONE
+	size = ROUNDUP(NENV * sizeof(struct Env), PGSIZE);
+	boot_map_region(kern_pgdir, UENVS, size, PADDR(envs), PTE_U|PTE_P);
 
 	/////////////////////////////////////////////////////////////////////////
 	// Use the physical memory that 'bootstack' refers to as the kernel
@@ -854,6 +867,12 @@ check_kern_pgdir(void)
 		assert(check_va2pa(pgdir, UPAGES + i) == PADDR(pages) + i);
 	}
 
+	// check envs array
+	n = ROUNDUP(NENV*sizeof(struct Env), PGSIZE);
+	for (i = 0; i < n; i += PGSIZE) {
+		assert(check_va2pa(pgdir, UENVS + i) == PADDR(envs) + i);
+	}
+
 	// check phys mem
 	for (i = 0; i < npages * PGSIZE; i += PGSIZE) {
 		assert(check_va2pa(pgdir, KERNBASE + i) == i);
@@ -871,6 +890,7 @@ check_kern_pgdir(void)
 		case PDX(UVPT):
 		case PDX(KSTACKTOP-1):
 		case PDX(UPAGES):
+		case PDX(UENVS):
 			assert(pgdir[i] & PTE_P);
 			break;
 		default:
