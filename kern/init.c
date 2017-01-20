@@ -3,6 +3,7 @@
 #include <kern/console.h>
 #include <kern/monitor.h>
 #include <kern/pmap.h>
+#include <kern/env.h>
 
 void
 i386_init(void)
@@ -22,10 +23,19 @@ i386_init(void)
 
 	mem_init();
 
+	env_init();
+	trap_init();
+
+	ENV_CREATE(user_hello, ENV_TYPE_USER);
+
+
+	// We only have one user environment for now, so just run it.
+	env_run(&envs[0]);
+
 	// Drop into the kernel monitor.
-	while (1) {
+/*	while (1) {
 		monitor(NULL);
-	}
+	}*/
 }
 
 /*

@@ -148,5 +148,86 @@ struct Segdesc {
 #define STA_R 			0x2			// Readable (executable segments)
 #define STA_A			0x1 		// Accessed
 
+// System segment type bits
+#define STS_T16A		0x1 		// Available 16-bit TSS
+#define STS_LDT			0x2 		// Local Descriptor Table
+#define STS_T16B 		0x3 		// Busy 16-bit TSS
+#define STS_CG16		0x4 		// 16-bit Call Gate
+#define STS_TG			0x5	    // Task Gate / Coum Transmitions
+#define STS_IG16		0x6	    // 16-bit Interrupt Gate
+#define STS_TG16		0x7	    // 16-bit Trap Gate
+#define STS_T32A		0x9	    // Available 32-bit TSS
+#define STS_T32B		0xB	    // Busy 32-bit TSS
+#define STS_CG32		0xC	    // 32-bit Call Gate
+#define STS_IG32		0xE	    // 32-bit Interrupt Gate
+#define STS_TG32		0xF	    // 32-bit Trap Gate
+
+/*
+ * Traps.
+ */
+
+#ifndef __ASSEMBLER__
+
+// Task state segment format (as described by the Pentium architecture book)
+struct Taskstate {
+	uint32_t 	ts_link;	// Old ts selector
+	uintptr_t	ts_esp0;	// Stack pointers and segment selectors
+	uint16_t	ts_ss0;		// after an increase in privilege level
+	uint16_t 	ts_padding1;
+	uintptr_t 	ts_esp1;
+	uint16_t 	ts_ss1;
+	uint16_t 	ts_padding2;
+	uintptr_t 	ts_esp2;
+	uint16_t 	ts_ss2;
+	uint16_t 	ts_padding3;
+	physaddr_t	ts_cr3;		// Page directory base
+	uintptr_t	ts_eip;		// Saved state from last task switch
+	uint32_t	ts_eflags;
+	uint32_t	ts_eax;		// More saved state (registers)
+	uint32_t 	ts_ecx;
+	uint32_t 	ts_edx;
+	uint32_t 	ts_ebx;
+	uintptr_t 	ts_esp;
+	uintptr_t 	ts_ebp;
+	uint32_t 	ts_esi;
+	uint32_t 	ts_edi;
+	uint16_t	ts_es;		// Even more saved state (segment selector)
+	uint16_t 	ts_padding4;
+	uint16_t 	ts_cs;
+	uint16_t 	ts_padding5;
+	uint16_t 	ts_ss;
+	uint16_t 	ts_padding6;
+	uint16_t 	ts_ds;
+	uint16_t 	ts_padding7;
+	uint16_t 	ts_fs;
+	uint16_t 	ts_padding8;
+	uint16_t 	ts_gs;
+	uint16_t 	ts_padding9;
+	uint16_t 	ts_ldt;
+	uint16_t 	ts_padding10;
+	uint16_t	ts_t;		// Trap on task switch
+	uint16_t	ts_iomb;	// I/O map base address
+};
+
+// Gate descriptors for interrupts and traps
+struct Gatedesc {
+	unsigned gd_off_15_0 : 16;		// low 16 bits of offset in segment
+	unsigned gd_sel : 16;			// segment selector
+	unsigned gd_args : 5;			// # args, 0 for interrupt/trap gates
+	unsigned gd_rsv1 : 3;			// reserved(should be zero I guess)
+	unsigned gd_type : 4;			// type(STS_{TG, IG32, TG32})
+	unsigned gd_s : 1;				// must be 0 (system)
+	unsigned gd_dpl : 2;			// descriptor(meaning new) privilege level
+	unsigned gd_p : 1;				// Present
+	unsigned gd_off_31_16 : 16;		// high bits of offset in segment
+};
+
+// Pseudo-descriptors used for LGDT, LLDT, LIDT instructions.
+struct Pseudodesc {
+	uint16_t	pd_lim;			// Limit
+	uint32_t	pd_base;		// Base address
+} __attribute__ ((packed));
+
+#endif /* !__ASSEMBLER__ */
 
 #endif /* !YUOS_INC_MMU_H */
