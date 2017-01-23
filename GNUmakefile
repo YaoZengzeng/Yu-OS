@@ -31,13 +31,18 @@ CFLAGS += $(shell $(CC) -fno-stack-protector -E -x c /dev/null >/dev/null 2>&1 &
 # Common linker flags
 LDFLAGS := -m elf_i386
 
+# Linker flags for Yu-OS user programs
+ULDFLAGS := -T user/user.ld
+
 GCC_LIB := $(shell $(CC) $(CFLAGS) -print-libgcc-file-name)
 
-KERN_CFLAGS := $(CFLAGS) -DJOS_KERNEL -gstabs
+KERN_CFLAGS := $(CFLAGS) -gstabs
+USER_CFLAGS := $(CFLAGS) -gstabs
 
 # Include Makefrags for subdirectories
 include boot/Makefrag
 include kern/Makefrag
+include user/Makefrag
 
 QEMUOPTS = -hda $(OBJDIR)/kern/kernel.img -serial mon:stdio -gdb tcp::$(GDBPORT)
 IMAGES = $(OBJDIR)/kern/kernel.img
