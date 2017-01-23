@@ -26,4 +26,7 @@ extern const volatile struct Env *thisenv;
 extern const volatile struct Env envs[NENV];
 extern const volatile struct PageInfo pages[];
 
+// syscall.c
+void sys_cputs(const char *string, size_t len);
+
 #endif	/* !JOS_INC_LIB_H */
