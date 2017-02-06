@@ -103,7 +103,7 @@
 
 #else 	// not __ASSEMBLER__
 
-//#include <inc/types.h>
+#include <inc/types.h>
 
 // Segment Descriptors
 struct Segdesc {
@@ -148,5 +148,14 @@ struct Segdesc {
 #define STA_R 			0x2			// Readable (executable segments)
 #define STA_A			0x1 		// Accessed
 
+#ifndef __ASSEMBLER__
+
+// Pseudo-descriptors used for LGDT, LLDT and LIDT instructions.
+struct Pseudodesc {
+	uint16_t pd_lim;		// Limit
+	uint32_t pd_base;		// Base address
+} __attribute__ ((packed));
+
+#endif /* !__ASSEMBLER__ */
 
 #endif /* !YUOS_INC_MMU_H */

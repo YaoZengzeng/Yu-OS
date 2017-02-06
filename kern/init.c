@@ -1,8 +1,10 @@
 #include <inc/string.h>
 #include <inc/stdio.h>
+
 #include <kern/console.h>
 #include <kern/monitor.h>
 #include <kern/pmap.h>
+#include <kern/env.h>
 
 void
 i386_init(void)
@@ -21,6 +23,8 @@ i386_init(void)
 	cprintf("Hello, I'm Yu-OS\n");
 
 	mem_init();
+
+	env_init();
 
 	// Drop into the kernel monitor.
 	while (1) {
