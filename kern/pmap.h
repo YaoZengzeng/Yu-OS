@@ -9,6 +9,8 @@ extern char bootstacktop[], bootstack[];
 extern struct PageInfo *pages;
 extern size_t npages;
 
+extern pde_t *kern_pgdir;
+
 /* This macro takes a kernel virtual address -- an address that points above
  * KERNBASE, where the machine's maximum 256MB of physical memory is mapped --
  * and returns the corresponding physical address. It panics if you pass it a
