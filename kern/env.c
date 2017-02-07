@@ -2,6 +2,7 @@
 #include <inc/mmu.h>
 #include <inc/error.h>
 #include <inc/string.h>
+#include <inc/elf.h>
 
 #include <kern/env.h>
 #include <kern/pmap.h>
@@ -210,6 +211,124 @@ env_alloc(struct Env **newenv_store, envid_t parent_id)
 }
 
 //
+// Allocate len bytes of physical memory for environment env,
+// and map it at virtual address va in the environment's address space.
+// Does not zero or otherwise initialize the mapped pages in any way.
+// Pages should be writable by user and kernel.
+// Panic if any allocation attempt fails.
+//
+static void
+region_alloc(struct Env *e, void *va, size_t len)
+{
+	// Hint: It is easier to use region_alloc if the caller can pass
+	//	'va' and 'len' values that are not page-aligned.
+	//	We should round va down, and round (va + len) up.
+	//	(Watch out for corner-cases!)
+	struct PageInfo *page;
+	void *start, *end, *addr;
+	int r;
+	start = (void *) ROUNDDOWN(va, PGSIZE);
+	end = (void *) ROUNDUP(va + len, PGSIZE);
+
+	for (addr = start; addr < end; addr += PGSIZE) {
+		page = page_alloc(ALLOC_ZERO);
+		if (page == NULL) {
+			panic("region_alloc: alloc page failed");
+		}
+		r = page_insert(e->env_pgdir, page, addr, PTE_U | PTE_W | PTE_P);
+		if (r != 0) {
+			panic("region_alloc: page insert failed");
+		}
+	}
+
+	return;
+}
+
+//
+// Set up the initial program binary, stack, and processor flags
+// for a user process.
+// This function is only called during kernel initialization,
+// before running the first user-mode environment.
+//
+// This function loads all loadable segments from the ELF binary image
+// into the environment's user memory, starting at the appropriate
+// virtual addresses indicated in the ELF program header.
+// At the same time it clears to zero any portions of these segments
+// that are marked in the program header as being mapped
+// but not actually present in the ELF file - i.e., the program's bss section.
+//
+// All this is very similar to what our boot loader does, except the boot
+// loader also needs to read the code from disk. Take a look at
+// boot/main.c to get ideas.
+//
+// Finally, this function maps one page for the program's initial stack.
+//
+// load_icode panics if it encouters problems.
+//	- How might load_icode fail? What might be wrong with the given input?
+//
+static void
+load_icode(struct Env *e, uint8_t *binary)
+{
+	// Hints:
+	//	Load each program segment into virtual memory
+	//	at the address specified in the ELF section header.
+	//	We should only load segments with ph->p_type == ELF_PROG_LOAD.
+	//	Each segment's virtual address can be found in ph->p_va
+	//	and its size in memory can be found in ph->p_memsz.
+	//	The ph->p_filesz bytes from the ELF binary, starting at
+	//	'binary + ph->p_offset', should be copied to virtual address
+	//	ph->p_va. Any remaining memory bytes should be cleared to zero.
+	//	(The ELF header should have ph->p_filesz <= ph->p_memsz.)
+	//	Use functions from the previous lab to allocate and map pages.
+	//
+	//	All page protection bits should be user read/write for now.
+	//	ELF segments are not necessarily page-aligned, but we can
+	//	assume for this function that no two segments will touch
+	// 	the same virtual page.
+	//
+	//	We may find a function like region_alloc useful.
+	//
+	//	Loading the segments is much simpler if we can move data
+	//	directory into the virtual addresses stored in the ELF binary.
+	//	So which page directory should be in force during
+	//	this function?	e->env_pgdir
+	//
+	//	We must also do something with the program's entry point,
+	//	to make sure that the environment starts executing there.
+	//	What?	(see env_run() and env_pop_tf() below.)
+	struct Elf *elfhdr;
+	struct Proghdr *ph, *eph;
+
+	// Make e's page directory be in force for memmory copy
+	lcr3(PADDR(e->env_pgdir));
+
+	elfhdr = (struct Elf*) binary;
+	if (elfhdr->e_magic != ELF_MAGIC) {
+		panic("load_icode: binary's e_magic != ELF_MAGIC");
+	}
+
+	// Load each program segment
+	ph = (struct Proghdr*) ((uint8_t *) elfhdr + elfhdr->e_phoff);
+	eph = ph + elfhdr->e_phnum;
+	for (; ph < eph; ph++) {
+		if (ph->p_type != ELF_PROG_LOAD) {
+			continue;
+		}
+		region_alloc(e, (void *)(ph->p_va), (size_t)(ph->p_memsz));
+		memmove((void *)(ph->p_va), (void *)(binary + ph->p_offset), ph->p_filesz);
+	}
+
+	// Restore the cr3 register
+	lcr3(PADDR(kern_pgdir));
+
+	//	Now map one page for the program's initial stack
+	//	at virtual address USTACKTOP - PGSIZE.
+	region_alloc(e, (void *)(USTACKTOP - PGSIZE), (size_t)PGSIZE);
+
+	return;
+}
+
+//
 // Allocates a new env with env_alloc, loads the named elf
 // binary into it with load_icode, and sets its env_type.
 // This function is ONLY called during kernel initialization,
@@ -219,5 +338,17 @@ env_alloc(struct Env **newenv_store, envid_t parent_id)
 void
 env_create(uint8_t *binary, enum EnvType type)
 {
+	struct Env *e;
+	int r;
 
+	r = env_alloc(&e, 0);
+	if (r != 0) {
+		panic("env_create: env alloc failed");
+	}
+
+	load_icode(e, binary);
+
+	e->env_type = type;
+
+	return;
 }
