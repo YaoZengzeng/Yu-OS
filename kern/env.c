@@ -321,6 +321,9 @@ load_icode(struct Env *e, uint8_t *binary)
 	// Restore the cr3 register
 	lcr3(PADDR(kern_pgdir));
 
+	// Set the program's entry point
+	e->env_tf.tf_eip = elfhdr->e_entry;
+
 	//	Now map one page for the program's initial stack
 	//	at virtual address USTACKTOP - PGSIZE.
 	region_alloc(e, (void *)(USTACKTOP - PGSIZE), (size_t)PGSIZE);
@@ -351,4 +354,58 @@ env_create(uint8_t *binary, enum EnvType type)
 	e->env_type = type;
 
 	return;
+}
+
+//
+// Restores the register values in the Trapframe with the 'iret' instruction.
+// This exits the kernel and starts executing some environment's code.
+//
+// This function does not return.
+//
+void
+env_pop_tf(struct Trapframe *tf)
+{
+	__asm __volatile("movl %0,%%esp\n"
+		"\tpopal\n"
+		"\tpopl %%es\n"
+		"\tpopl %%ds\n"
+		"\taddl $0x8,%%esp\n" /* skip tf_trapno and tf_errcode */
+		"\tiret"
+		: : "g" (tf) : "memory");
+	panic("iret failed");  /* mostly to placate the compiler */
+}
+
+//
+// Context switch from curenv to env e.
+// Note: if this is the first call to env_run, curenv is NULL.
+//
+// This function does not return.
+//
+void
+env_run(struct Env *e)
+{
+	// Step 1: If this is a context switch (a new environment is running):
+	//	1. Set the current environment (if any) back to
+	//		ENV_RUNNABLE if it is ENV_RUNNING (think about
+	//		what other states it can be in),
+	//	2. Set 'curenv' to the new environment,
+	//	3. Set its status to ENV_RUNNING,
+	//	4. Update its 'env_runs' counter,
+	//	5. Use lcr3() to switch to its address space.
+	// Step 2: Use env_pop_tf() to restore the environment's
+	//		registers and drop into user mode in the
+	//		environment.
+	if (curenv != NULL && curenv->env_status == ENV_RUNNING) {
+		curenv->env_status = ENV_RUNNABLE;
+	}
+	curenv = e;
+	curenv->env_status = ENV_RUNNING;
+	curenv->env_runs++;
+	lcr3(PADDR(e->env_pgdir));
+
+	// Hint: This function loads the new environment's state from
+	//	e->env_tf.	Go back through the code we worte above
+	//	and make sure we have set the relevant parts of
+	//	e->env_tf to sensible values.
+	env_pop_tf(&(e->env_tf));
 }

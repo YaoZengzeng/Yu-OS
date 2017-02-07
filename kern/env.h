@@ -11,4 +11,8 @@ void 	env_init_percpu(void);
 void 	env_create(uint8_t *binary, enum EnvType type);
 int 	env_alloc(struct Env **e, envid_t parent_id);
 
+// The following two functions do not return
+void	env_run(struct Env *e) __attribute__((noreturn));
+void	env_pop_tf(struct Trapframe *tf) __attribute__((noreturn));
+
 #endif 	/* !YUOS_KERN_ENV_H */
