@@ -26,6 +26,12 @@ i386_init(void)
 
 	env_init();
 
+	ENV_CREATE(user_hello, ENV_TYPE_USER);
+	cprintf("env_create success\n");
+
+	env_run(&envs[0]);
+	cprintf("finish envs[0]");
+
 	// Drop into the kernel monitor.
 	while (1) {
 		monitor(NULL);

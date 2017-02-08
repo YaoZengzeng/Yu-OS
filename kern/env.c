@@ -132,7 +132,7 @@ env_setup_vm(struct Env *e)
 	//	pp_ref for env_free to work correctly.
 	//		- The functions in kern/pmap.h are handy.
 	e->env_pgdir = (pde_t*) page2kva(p);
-	for (i = UTOP; i < NPDENTRIES; i++) {
+	for (i = UTOP/PTSIZE; i < NPDENTRIES; i++) {
 		e->env_pgdir[i] = kern_pgdir[i];
 	}
 	p->pp_ref++;
@@ -299,6 +299,8 @@ load_icode(struct Env *e, uint8_t *binary)
 	struct Elf *elfhdr;
 	struct Proghdr *ph, *eph;
 
+	struct PageInfo *page;
+
 	// Make e's page directory be in force for memmory copy
 	lcr3(PADDR(e->env_pgdir));
 
@@ -314,14 +316,17 @@ load_icode(struct Env *e, uint8_t *binary)
 		if (ph->p_type != ELF_PROG_LOAD) {
 			continue;
 		}
+		cprintf("ph->p_va is %x\n", ph->p_va);
 		region_alloc(e, (void *)(ph->p_va), (size_t)(ph->p_memsz));
-		memmove((void *)(ph->p_va), (void *)(binary + ph->p_offset), ph->p_filesz);
+		memset((void *)(ph->p_va), 0, (size_t)(ph->p_memsz));
+		memmove((void *)(ph->p_va), (void *)(binary + ph->p_offset), (size_t)(ph->p_filesz));
 	}
 
 	// Restore the cr3 register
 	lcr3(PADDR(kern_pgdir));
 
 	// Set the program's entry point
+	cprintf("elfhdr->e_entry is %08x\n", elfhdr->e_entry);
 	e->env_tf.tf_eip = elfhdr->e_entry;
 
 	//	Now map one page for the program's initial stack
@@ -401,7 +406,8 @@ env_run(struct Env *e)
 	curenv = e;
 	curenv->env_status = ENV_RUNNING;
 	curenv->env_runs++;
-	lcr3(PADDR(e->env_pgdir));
+
+	lcr3(PADDR(curenv->env_pgdir));
 
 	// Hint: This function loads the new environment's state from
 	//	e->env_tf.	Go back through the code we worte above
