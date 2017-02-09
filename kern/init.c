@@ -5,6 +5,7 @@
 #include <kern/monitor.h>
 #include <kern/pmap.h>
 #include <kern/env.h>
+#include <kern/trap.h>
 
 void
 i386_init(void)
@@ -25,12 +26,13 @@ i386_init(void)
 	mem_init();
 
 	env_init();
+	trap_init();
 
-	ENV_CREATE(user_hello, ENV_TYPE_USER);
-	cprintf("env_create success\n");
+//	ENV_CREATE(user_hello, ENV_TYPE_USER);
+//	cprintf("env_create success\n");
 
-	env_run(&envs[0]);
-	cprintf("finish envs[0]");
+//	env_run(&envs[0]);
+//	cprintf("finish envs[0]");
 
 	// Drop into the kernel monitor.
 	while (1) {
