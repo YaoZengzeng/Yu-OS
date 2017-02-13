@@ -21,8 +21,8 @@ KERN_SRCFILES := kern/entry.S \
 			kern/kclock.c \
 			kern/picirq.c \
 			kern/printf.c \
-			kern/trap.c \
 			kern/trapentry.S \
+			kern/trap.c \
 			kern/sched.c \
 			kern/syscall.c \
 			kern/kdebug.c \
