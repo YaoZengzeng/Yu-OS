@@ -82,6 +82,8 @@
 #define CR0_CD		0x40000000	// Cache Disable
 #define CR0_PG		0x80000000	// Paging
 
+// Eflags register
+#define FL_IF		0x00000200  // Interrupt Flag
 
  /*
   * Segmentation data structures and constants.
@@ -150,6 +152,8 @@ struct Segdesc {
 
 // System segment type bits
 #define STS_T32A 		0x9 		// Available 32-bit TSS
+#define STS_IG32		0xE	    	// 32-bit Interrupt Gate
+#define STS_TG32		0xF	    	// 32-bit Trap Gate
 
 #ifndef __ASSEMBLER__
 
@@ -206,6 +210,32 @@ struct Gatedesc {
 	unsigned gd_p : 1;				// Present
 	unsigned gd_off_31_16 : 16;		// high bits of offset in segment
 };
+
+// Set up a normal interrupt/trap gate descriptor.
+// - istrap: 1 for a trap (=exception) gate, 0 for an interrupt gate.
+	//	The difference between an interrupt gate and a trap gate is in
+	//	the effect on IF (the interrupt-enable flag). An interrupt that
+	// 	vectors through an interrupt gate resets IF, thereby preventing other
+	//	interrupts from interfering with the current interrupt handler. A subsequent
+	//	IRET instruction restores IF to the value in the EFLAGS image on the stack.
+	//	An interrupt through a trap gate does not change IF.
+// - sel: Code segment selector for interrupt/trap handler
+// - off: Offset in code segment for interrupt/trap handler
+// - dpl: Descriptor Privilege Level -
+//		the privilege level required for software to invoke
+//		this interrupt/trap gate explicitly using an int instruction
+#define SETGATE(gate, istrap, sel, off, dpl) 			\
+{						\
+	(gate).gd_off_15_0 = (uint32_t) (off) & 0xffff;		\
+	(gate).gd_sel = (sel);				\
+	(gate).gd_args = 0;				\
+	(gate).gd_rsv1 = 0;				\
+	(gate).gd_type = (istrap) ? STS_TG32 : STS_IG32;	\
+	(gate).gd_s = 0;				\
+	(gate).gd_dpl = (dpl);			\
+	(gate).gd_p = 1;			\
+	(gate).gd_off_31_16 = (uint32_t) (off) >> 16;	\
+}
 
 // Pseudo-descriptors used for LGDT, LLDT and LIDT instructions.
 struct Pseudodesc {
