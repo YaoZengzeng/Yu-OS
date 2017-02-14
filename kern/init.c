@@ -29,6 +29,7 @@ i386_init(void)
 	trap_init();
 
 //	ENV_CREATE(user_hello, ENV_TYPE_USER);
+//	ENV_CREATE(user_divzero, ENV_TYPE_USER);
 //	cprintf("env_create success\n");
 
 //	env_run(&envs[0]);
