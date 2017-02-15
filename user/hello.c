@@ -4,6 +4,6 @@
 void
 umain(int argc, char **argv)
 {
-	//cprintf("hello, world\n");
+	cprintf("hello, world\n");
 	while(1);
 }

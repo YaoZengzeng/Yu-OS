@@ -58,6 +58,7 @@ TRAPHANDLER_NOEC(trap_fperr, T_FPERR);
 TRAPHANDLER_NOEC(trap_align, T_ALIGN);
 TRAPHANDLER_NOEC(trap_mchk, T_MCHK);
 TRAPHANDLER_NOEC(trap_simderr, T_SIMDERR);
+TRAPHANDLER_NOEC(trap_syscall, T_SYSCALL);
 
 
 /* code for _alltraps */

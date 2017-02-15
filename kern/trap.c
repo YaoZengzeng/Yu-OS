@@ -5,6 +5,7 @@
 #include <kern/trap.h>
 #include <kern/pmap.h>
 #include <kern/env.h>
+#include <kern/syscall.h>
 
 static struct Taskstate ts;
 
@@ -80,6 +81,7 @@ trap_init(void)
 	extern void trap_align();
 	extern void trap_mchk();
 	extern void trap_simderr();
+	extern void trap_syscall();
 
 	SETGATE(idt[T_DIVIDE], 	1, GD_KT, trap_divide, 	3);
 	SETGATE(idt[T_DEBUG], 	1, GD_KT, trap_debug, 	3);
@@ -99,6 +101,7 @@ trap_init(void)
 	SETGATE(idt[T_ALIGN], 	1, GD_KT, trap_align, 	3);
 	SETGATE(idt[T_MCHK], 	1, GD_KT, trap_mchk, 	3);
 	SETGATE(idt[T_SIMDERR], 1, GD_KT, trap_simderr, 3);
+	SETGATE(idt[T_SYSCALL],	1, GD_KT, trap_syscall, 3);
 
 	// Per-CPU setup
 	trap_init_percpu();
@@ -174,6 +177,15 @@ static void
 trap_dispatch(struct Trapframe *tf)
 {
 	// Handle processor exceptions.
+
+	// Handle system call
+	if (tf->tf_trapno == T_SYSCALL) {
+		uint32_t ret;
+		ret = syscall(tf->tf_regs.reg_eax, tf->tf_regs.reg_edx, tf->tf_regs.reg_ecx, \
+			tf->tf_regs.reg_ebx, tf->tf_regs.reg_edi, tf->tf_regs.reg_esi);
+		curenv->env_tf.tf_regs.reg_eax = ret;
+		return;
+	}
 
 	// Unexpected trap: The user process or the kernel has a bug.
 	print_trapframe(tf);

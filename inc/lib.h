@@ -15,6 +15,7 @@
 #include <inc/assert.h>
 #include <inc/env.h>
 #include <inc/memlayout.h>
+#include <inc/syscall.h>
 
 // main user program
 void	umain(int argc, char **argv);
@@ -24,5 +25,8 @@ extern const char *binaryname;
 extern const volatile struct Env *thisenv;
 extern const volatile struct Env envs[NENV];
 extern const volatile struct PageInfo pages[];
+
+// syscall.c
+void sys_cputs(const char *string, size_t len);
 
 #endif 	/* YUOS_INC_LIB_H */

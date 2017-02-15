@@ -1,6 +1,8 @@
 LIB_SRCFILES :=	lib/libmain.c \
 			lib/printfmt.c \
 			lib/readline.c \
+			lib/print.c \
+			lib/syscall.c \
 			lib/string.c
 
 
