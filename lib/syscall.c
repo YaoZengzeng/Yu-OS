@@ -43,6 +43,12 @@ sys_cputs(const char *s, size_t len)
 	syscall(SYS_cputs, 0, (uint32_t)s, len, 0, 0, 0);
 }
 
+int
+sys_env_destroy(envid_t envid)
+{
+	return syscall(SYS_env_destroy, 1, envid, 0, 0, 0, 0);
+}
+
 envid_t
 sys_getenvid(void)
 {

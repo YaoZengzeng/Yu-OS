@@ -26,8 +26,12 @@ extern const volatile struct Env *thisenv;
 extern const volatile struct Env envs[NENV];
 extern const volatile struct PageInfo pages[];
 
+// exit.c
+void 	exit(void);
+
 // syscall.c
 void sys_cputs(const char *string, size_t len);
 envid_t sys_getenvid(void);
+int sys_env_destroy(envid_t);
 
 #endif 	/* YUOS_INC_LIB_H */

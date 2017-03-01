@@ -6,6 +6,7 @@
 
 #include <kern/env.h>
 #include <kern/pmap.h>
+#include <kern/monitor.h>
 
 struct Env *envs = NULL;		// All environments
 struct Env *curenv	= NULL;		// The current env
@@ -52,6 +53,52 @@ struct Segdesc gdt[] =
 struct Pseudodesc gdt_pd = {
 	sizeof(gdt) - 1, (unsigned long) gdt
 };
+
+//
+// Converts an envid to an env pointer.
+// if checkperm is set, the specified environment must be either the
+// current environment or an immediate child of the current environment.
+//
+// RETURNS
+//	0 on success, -E_BAD_ENV on error.
+//	On success, sets *env_store to the environment.
+//	On error, sets *env_store to NULL.
+//
+int
+envid2env(envid_t envid, struct Env **env_store, bool checkperm)
+{
+	struct Env *e;
+
+	// If envid is zero, return the current environment.
+	if (envid == 0) {
+		*env_store = curenv;
+		return 0;
+	}
+
+	// Look up the Env structure via the index part of the envid,
+	// then check the env_id field in that struct Env
+	// to ensure that the envid is not stale
+	// (i.e., does not refer to a _previous_ environment
+	// that used the same slot in the envs[] array).
+	e = &envs[ENVX(envid)];
+	if (e->env_status == ENV_FREE || e->env_id != envid) {
+		*env_store = 0;
+		return -E_BAD_ENV;
+	}
+
+	// Check that the calling environment has legitimate permission
+	// to manipulate the specified environment.
+	// If checkperm is set, the specified environment
+	// must be either the current environment
+	// or an immediate child of the current environment.
+	if (checkperm && e != curenv && e->env_parent_id != curenv->env_id) {
+		*env_store = 0;
+		return -E_BAD_ENV;
+	}
+
+	*env_store = e;
+	return 0;
+}
 
 // Mark all environments in 'envs' as free, set their env_ids to 0,
 // and insert them into the env_free_list.
@@ -359,6 +406,75 @@ env_create(uint8_t *binary, enum EnvType type)
 	e->env_type = type;
 
 	return;
+}
+
+//
+// Frees env e and all memory it uses.
+//
+void
+env_free(struct Env *e)
+{
+	pte_t *pt;
+	uint32_t pdeno, pteno;
+	physaddr_t pa;
+
+	// If freeing the current environment, switch to kern_pgdir
+	// before freeing the page directory, just in case the page
+	// gets reused.
+	if (e == curenv) {
+		lcr3(PADDR(kern_pgdir));
+	}
+
+	// Note the environment's demise.
+	cprintf("[%08x] free env %08x\n", curenv ? curenv->env_id : 0, e->env_id);
+
+	// Flush all mapped pages in the user portion of the address space
+	// static_assert(UTOP % PTSIZE == 0);
+	for (pdeno = 0; pdeno < PDX(UTOP); pdeno++) {
+		// only look at mapped page tables
+		if (!(e->env_pgdir[pdeno] & PTE_P)) {
+			continue;
+		}
+
+		// find the pa and va of the page table
+		pa = PTE_ADDR(e->env_pgdir[pdeno]);
+		pt = (pte_t*) KADDR(pa);
+
+		// unmap all PTEs in this page table
+		for (pteno = 0; pteno <= PTX(~0); pteno++) {
+			if (pt[pteno] & PTE_P) {
+				page_remove(e->env_pgdir, PGADDR(pdeno, pteno, 0));
+			}
+		}
+
+		// free the page table itself
+		e->env_pgdir[pdeno] = 0;
+		page_decref(pa2page(pa));
+	}
+
+	// free the page directory
+	pa = PADDR(e->env_pgdir);
+	e->env_pgdir = 0;
+	page_decref(pa2page(pa));
+
+	// return the environment to the free list
+	e->env_status = ENV_FREE;
+	e->env_link = env_free_list;
+	env_free_list = e;
+}
+
+//
+// Frees environment e.
+//
+void
+env_destroy(struct Env *e)
+{
+	env_free(e);
+
+	cprintf("Destroy the only environment - nothing more to do!\n");
+	while (1) {
+		monitor(NULL);
+	}
 }
 
 //

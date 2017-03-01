@@ -3,7 +3,8 @@ LIB_SRCFILES :=	lib/libmain.c \
 			lib/readline.c \
 			lib/print.c \
 			lib/syscall.c \
-			lib/string.c
+			lib/string.c \
+			lib/exit.c
 
 
 LIB_OBJFILES := $(patsubst lib/%.c, $(OBJDIR)/lib/%.o, $(LIB_SRCFILES))
