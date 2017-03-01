@@ -3,7 +3,8 @@
 
 /* system call numbers */
 enum {
-	SYS_cputs = 0
+	SYS_cputs = 0,
+	SYS_getenvid
 };
 
 #endif /* !YUOS_INC_SYSCALL_H */

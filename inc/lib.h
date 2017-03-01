@@ -28,5 +28,6 @@ extern const volatile struct PageInfo pages[];
 
 // syscall.c
 void sys_cputs(const char *string, size_t len);
+envid_t sys_getenvid(void);
 
 #endif 	/* YUOS_INC_LIB_H */

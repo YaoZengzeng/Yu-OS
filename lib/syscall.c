@@ -42,3 +42,9 @@ sys_cputs(const char *s, size_t len)
 {
 	syscall(SYS_cputs, 0, (uint32_t)s, len, 0, 0, 0);
 }
+
+envid_t
+sys_getenvid(void)
+{
+	return syscall(SYS_getenvid, 0, 0, 0, 0, 0, 0);
+}

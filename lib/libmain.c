@@ -12,7 +12,10 @@ void
 libmain(int argc, char **argv)
 {
 	// set thisenv to point at our Env structure in envs
-	thisenv = 0;
+	envid_t envid;
+
+	envid = sys_getenvid();
+	thisenv = &envs[envid & (NENV - 1)];
 
 	// save the name of the program so that panic() can use it
 	if (argc > 0) {

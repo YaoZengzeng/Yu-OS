@@ -24,6 +24,13 @@ sys_cputs(const char *s, size_t len)
 	cprintf("%.*s", len, s);
 }
 
+// Returns the current environment's envid
+static envid_t
+sys_getenvid(void)
+{
+	return curenv->env_id;
+}
+
 // Dispatches to the correct kernel function, passing the arguments.
 int32_t
 syscall(uint32_t syscallno, uint32_t a1, uint32_t a2, uint32_t a3, uint32_t a4, uint32_t a5)
@@ -35,7 +42,10 @@ syscall(uint32_t syscallno, uint32_t a1, uint32_t a2, uint32_t a3, uint32_t a4, 
 	case SYS_cputs:
 		sys_cputs((char *)a1, (size_t)a2);
 		return 0;
-		
+
+	case SYS_getenvid:
+		return (int32_t)sys_getenvid();
+
 	default:
 		return -E_NO_SYS;
 	}
