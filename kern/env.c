@@ -7,6 +7,7 @@
 #include <kern/env.h>
 #include <kern/pmap.h>
 #include <kern/monitor.h>
+#include <kern/sched.h>
 
 struct Env *envs = NULL;		// All environments
 struct Env *curenv	= NULL;		// The current env
@@ -471,9 +472,9 @@ env_destroy(struct Env *e)
 {
 	env_free(e);
 
-	cprintf("Destroy the only environment - nothing more to do!\n");
-	while (1) {
-		monitor(NULL);
+	if (curenv == e) {
+		curenv = NULL;
+		sched_yield();
 	}
 }
 

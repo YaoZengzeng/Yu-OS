@@ -33,5 +33,25 @@ void 	exit(void);
 void sys_cputs(const char *string, size_t len);
 envid_t sys_getenvid(void);
 int sys_env_destroy(envid_t);
+static envid_t sys_exofork(void);
+int sys_env_set_status(envid_t env, int status);
+int sys_page_alloc(envid_t env, void *pg, int perm);
+int sys_page_map(envid_t src_env, void *src_pg,
+				envid_t dst_env, void *dst_pg, int perm);
+int sys_page_unmap(envid_t env, void *pg);
+void sys_yield(void);
+
+// This must be inlined.
+static __inline envid_t __attribute__((always_inline))
+sys_exofork(void)
+{
+	envid_t ret;
+	__asm __volatile("int %2"
+		: "=a" (ret)
+		: "a" (SYS_exofork),
+		  "i" (T_SYSCALL)
+	);
+	return ret;
+}
 
 #endif 	/* YUOS_INC_LIB_H */

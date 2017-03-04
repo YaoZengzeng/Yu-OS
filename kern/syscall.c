@@ -8,6 +8,7 @@
 #include <kern/trap.h>
 #include <kern/syscall.h>
 #include <kern/console.h>
+#include <kern/sched.h>
 
 // Print a string to the system console.
 // The string is exactly 'len' characters long.
@@ -54,6 +55,225 @@ sys_env_destroy(envid_t envid)
 	return 0;
 }
 
+// Allocate a new environment.
+// Returns envid of new environment, or < 0 on error. Errors are:
+// 	-E_NO_FREE_ENV if no free environment is available.
+//	-E_NO_MEM on memory exhaustion.
+static envid_t
+sys_exofork(void)
+{
+	// Create the new environment with env_alloc(), from kern/env.c
+	// It should be left as env_alloc created it, except that
+	// status is set to ENV_NOT_RUNNABLE, and the register set is copied
+	// from the current environment -- but tweaked so sys_exofork
+	// will appear to return 0.
+
+	struct Env *e;
+	int r;
+	r = env_alloc(&e, curenv->env_id);
+	if (r != 0) {
+		return r;
+	}
+
+	e->env_tf = curenv->env_tf;
+
+	e->env_status = ENV_NOT_RUNNABLE;
+
+
+	curenv->env_tf.tf_regs.reg_eax = e->env_id;
+	e->env_tf.tf_regs.reg_eax = 0;
+
+	return curenv->env_tf.tf_regs.reg_eax;
+}
+
+// Set envid's env_status to status, which must be ENV_RUNNABLE
+// or ENV_NOT_RUNNABLE.
+//
+// Returns 0 on success, < 0 on error. Error are:
+//	-E_BAD_ENV if environment envid doesn't currently exist.
+//		or the caller doesn't have permission to change envid.
+//	-E_INVAL if status is not a valid status for an environment.
+static int
+sys_env_set_status(envid_t envid, int status)
+{
+	// Hint: Use the 'envid2env' function from kern/env.c to translate an
+	// envid to a struct Env.
+	// We should set envid2env's third argument to 1, which will
+	// check whether the current environment has permission to set
+	// envid's status.
+
+	int r;
+	struct Env *e;
+	if (status != ENV_RUNNABLE && status != ENV_NOT_RUNNABLE) {
+		return -E_INVAL;
+	}
+
+	r = envid2env(envid, &e, 1);
+	if (r != 0) {
+		return r;
+	}
+
+	e->env_status = status;
+
+	return 0;
+}
+
+// Allocate a page of memory and map it at 'va' with permission
+// 'perm' in the address space of 'envid'.
+// The page's contents are set to 0.
+// If a page is already mapped at 'va', that page is unmapped as
+// side effect.
+//
+// perm -- PTE_U | PTE_P must be set, PTE_AVAIL | PTE_W may or may not be set,
+//		   but no other bits may set. See PTE_SYSCALL in inc/mmu.h.
+//
+// Return 0 on success, < 0 on error. Errors are:
+//	-E_BAD_ENV if environment envid doesn't currently exist,
+//		or the caller doesn't have permission to change envid.
+//	-E_INVAL if va >= UTOP, or va is not page-aligned.
+//	-E_INVAL if perm is inappropriate (see above).
+//	-E_NO_MEM if there's no memory to allocate the new page,
+//		or to allocate any necessary page tables.
+static int
+sys_page_alloc(envid_t envid, void *va, int perm)
+{
+	// Hint: This function is a wrapper around page_alloc() and
+	//	page_insert() from kern/pmap.c
+	//	Most of the new code we write should be to check the
+	//	parameters for correctness.
+	//	If page_insert() fails, remember to free the page we
+	//	allocated!
+
+	int r;
+	struct Env *e;
+	struct PageInfo *page;
+	if ((uint32_t)va >= UTOP || (uint32_t)va % PGSIZE != 0)	{
+		return -E_INVAL;
+	}
+	if ((perm & PTE_U) == 0 || (perm & PTE_P) == 0) {
+		return -E_INVAL;
+	}
+	if (perm & ~(PTE_P | PTE_U | PTE_W | PTE_AVAIL)) {
+		return -E_INVAL;
+	}
+
+	r = envid2env(envid, &e, 0);
+	if (r != 0) {
+		return r;
+	}
+
+	page = page_alloc(ALLOC_ZERO);
+	if (page == NULL) {
+		return -E_NO_MEM;
+	}
+
+	r = page_insert(e->env_pgdir, page, va, perm);
+
+	if (r != 0) {
+		page_free(page);
+	}
+
+	return r;
+}
+
+// Map the page of memory at 'srcva' in srcenvid's address space
+// at 'dstva' in dstenvid's address space with permission 'perm'.
+// Perm has the same restriction as in sys_page_alloc, except
+// that it also must not grant write access to a read-only
+// page.
+//
+// Return 0 on success, < 0 on error. Errors are:
+//	-E_BAD_ENV if srcenvid and/or dstenvid doesn't currently exist,
+//		or the caller doesn't have permission on change one of them.
+//	-E_INVAL if srcva >= UTOP or srcva is not page-aligned,
+//		or dstva >= UTOP or dstva is not page-ligned.
+//	-E_INVAL if srcva is not mapped at srcenvid's address space.
+//	-E_INVAL if perm is inappropriate (see sys_page_alloc)
+//	-E_INVAL if (perm & PTE_W), but srcva is read-only in srcenvid's
+//		address space.
+//	-E_NO_MEM if there's no memory to allocate any necessay page tables.
+static int
+sys_page_map(envid_t srcenvid, void *srcva,
+		envid_t dstenvid, void *dstva, int perm)
+{
+	// Hint: This function is a wrapper around page_lookup() and
+	//	page_insert() from kern/pmap.c
+	//	Again, most of the new code we write should be to check the
+	//	parameters for correctness.
+	//	Use the third argument to page_lookup() to
+	//	check the current permissions on the page.
+	int r;
+	struct Env *srce, *dste;
+	struct PageInfo *page;
+	pte_t *pte;
+	if ((uint32_t)srcva >= UTOP || (uint32_t)srcva % PGSIZE != 0 || (uint32_t)dstva >= UTOP || (uint32_t)dstva % PGSIZE != 0) {
+		return -E_INVAL;
+	}
+	if ((perm & PTE_U) == 0 || (perm & PTE_P) == 0) {
+		return -E_INVAL;
+	}
+	if (perm & ~(PTE_P | PTE_U | PTE_W | PTE_AVAIL)) {
+		return -E_INVAL;
+	}
+
+	r = envid2env(srcenvid, &srce, 0);
+	if (r != 0) {
+		return r;
+	}
+
+	r = envid2env(dstenvid, &dste, 0);
+	if (r != 0) {
+		return r;
+	}
+
+	page = page_lookup(srce->env_pgdir, srcva, &pte);
+	if (page == NULL) {
+		return -E_INVAL;
+	}
+
+	if ((*pte & PTE_W) == 0 && perm & PTE_W) {
+		return -E_INVAL;
+	}
+
+	r = page_insert(dste->env_pgdir, page, dstva, perm);
+
+	return r;
+}
+
+// Unmap the page of memory at 'va' in the address space of 'envid'.
+// If no page is mapped, the function silently succeeds.
+//
+// Return 0 on success, < 0 on error. Errors are:
+//	-E_BAD_ENV if environment envid doesn't currently exist,
+//		or the caller doesn't have permission to change envid.
+//	-E_INVAL if va >= UTOP, or va is not page-aligned.
+static int
+sys_page_unmap(envid_t envid, void *va)
+{
+	// Hint: This function is a wrapper around page_remove().
+	int r;
+	struct Env *e;
+	if ((uint32_t)va >= UTOP || (uint32_t)va % PGSIZE != 0) {
+		return -E_INVAL;
+	}
+
+	r = envid2env(envid, &e, 0);
+	if (r != 0) {
+		return r;
+	}
+
+	page_remove(e->env_pgdir, va);
+
+	return 0;
+}
+
+// Deschedule current environment and pick a different one to run.
+static void
+sys_yield(void)
+{
+	sched_yield();
+}
+
 // Dispatches to the correct kernel function, passing the arguments.
 int32_t
 syscall(uint32_t syscallno, uint32_t a1, uint32_t a2, uint32_t a3, uint32_t a4, uint32_t a5)
@@ -71,6 +291,25 @@ syscall(uint32_t syscallno, uint32_t a1, uint32_t a2, uint32_t a3, uint32_t a4, 
 
 	case SYS_env_destroy:
 		return sys_env_destroy((envid_t)a1);
+
+	case SYS_page_alloc:
+		return sys_page_alloc((envid_t)a1, (void *)a2, (int)a3);
+
+	case SYS_page_map:
+		return sys_page_map((envid_t)a1, (void *)a2, (envid_t)a3, (void *)a4, (int)a5);
+
+	case SYS_page_unmap:
+		return sys_page_unmap((envid_t)a1, (void *)a2);
+
+	case SYS_yield:
+		sys_yield();
+		return 0;
+
+	case SYS_exofork:
+		return (int32_t)sys_exofork();
+
+	case SYS_env_set_status:
+		return (int32_t)sys_env_set_status((envid_t)a1, (int)a2);
 
 	default:
 		return -E_NO_SYS;
