@@ -7,6 +7,7 @@
 #ifndef YUOS_INC_LIB_H
 #define YUOS_INC_LIB_H 1
 
+#include <inc/assert.h>
 #include <inc/types.h>
 #include <inc/stdio.h>
 #include <inc/stdarg.h>

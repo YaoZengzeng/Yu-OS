@@ -4,7 +4,8 @@ LIB_SRCFILES :=	lib/libmain.c \
 			lib/print.c \
 			lib/syscall.c \
 			lib/string.c \
-			lib/exit.c
+			lib/exit.c \
+			lib/panic.c
 
 
 LIB_OBJFILES := $(patsubst lib/%.c, $(OBJDIR)/lib/%.o, $(LIB_SRCFILES))
