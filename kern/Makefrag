@@ -37,7 +37,9 @@ KERN_SRCFILES := $(wildcard $(KERN_SRCFILES))
 KERN_BINFILES := 	user/hello	\
 				user/divzero	\
 				user/buggyhello \
-				user/dumbfork
+				user/dumbfork \
+				user/faultread \
+				user/faultdie
 
 KERN_OBJFILES := $(patsubst %.c, $(OBJDIR)/%.o, $(KERN_SRCFILES))
 KERN_OBJFILES := $(patsubst %.S, $(OBJDIR)/%.o, $(KERN_OBJFILES))

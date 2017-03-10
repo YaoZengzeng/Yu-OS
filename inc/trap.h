@@ -74,6 +74,18 @@ struct Trapframe {
 	uint16_t	tf_padding4;
 }__attribute__((packed));
 
+struct UTrapframe {
+	/* information about the fault */
+	uint32_t utf_fault_va;		/* va for T_PGFLT, 0 otherwise*/
+	uint32_t utf_err;
+	/* trap-time return state */
+	struct PushRegs utf_regs;
+	uintptr_t utf_eip;
+	uint32_t utf_eflags;
+	/* the trap-time stack to return to */
+	uintptr_t utf_esp;
+} __attribute__((packed));
+
 #endif  /* !__ASSEMBLER__ */
 
 #endif 	/* !YUOS_INC_TRAP_H */

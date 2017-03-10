@@ -274,6 +274,31 @@ sys_yield(void)
 	sched_yield();
 }
 
+// Set the page fault upcall for 'envid' by modifying the corresponding struct
+// Env's 'env_pgfault_upcall' field. When 'envid' causes a page fault, the
+// kernel will push a page fault record on the exception stack, then branch to
+// 'func'
+//
+// Returns 0 on success, < 0 on error. Errors are:
+//	-E_BAD_ENV if environment envid doesn't currently exist
+//		or the caller doesn't have permission to change envid.
+static int
+sys_env_set_pgfault_upcall(envid_t envid, void *func)
+{
+	int r;
+	struct Env *e;
+
+	r = envid2env(envid, &e, 1);
+	if (r != 0) {
+		return r;
+	}
+
+	e->env_pgfault_upcall = func;
+
+	return 0;
+}
+
+
 // Dispatches to the correct kernel function, passing the arguments.
 int32_t
 syscall(uint32_t syscallno, uint32_t a1, uint32_t a2, uint32_t a3, uint32_t a4, uint32_t a5)
@@ -310,6 +335,9 @@ syscall(uint32_t syscallno, uint32_t a1, uint32_t a2, uint32_t a3, uint32_t a4, 
 
 	case SYS_env_set_status:
 		return (int32_t)sys_env_set_status((envid_t)a1, (int)a2);
+
+	case SYS_env_set_pgfault_upcall:
+		return (int32_t)sys_env_set_pgfault_upcall((envid_t)a1, (void *)a2);
 
 	default:
 		return -E_NO_SYS;

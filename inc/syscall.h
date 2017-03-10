@@ -11,7 +11,8 @@ enum {
 	SYS_page_unmap,
 	SYS_exofork,
 	SYS_env_set_status,
-	SYS_yield
+	SYS_yield,
+	SYS_env_set_pgfault_upcall
 };
 
 #endif /* !YUOS_INC_SYSCALL_H */

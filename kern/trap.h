@@ -7,5 +7,5 @@ void trap_init(void);
 void trap_init_percpu(void);
 void print_trapframe(struct Trapframe *tf);
 void print_regs(struct PushRegs *regs);
-
+void page_fault_handler(struct Trapframe *tf);
 #endif /* YUOS_KERN_TRAP_H */
