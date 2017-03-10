@@ -364,7 +364,6 @@ load_icode(struct Env *e, uint8_t *binary)
 		if (ph->p_type != ELF_PROG_LOAD) {
 			continue;
 		}
-		cprintf("ph->p_va is %x\n", ph->p_va);
 		region_alloc(e, (void *)(ph->p_va), (size_t)(ph->p_memsz));
 		memset((void *)(ph->p_va), 0, (size_t)(ph->p_memsz));
 		memmove((void *)(ph->p_va), (void *)(binary + ph->p_offset), (size_t)(ph->p_filesz));
@@ -374,7 +373,6 @@ load_icode(struct Env *e, uint8_t *binary)
 	lcr3(PADDR(kern_pgdir));
 
 	// Set the program's entry point
-	cprintf("elfhdr->e_entry is %08x\n", elfhdr->e_entry);
 	e->env_tf.tf_eip = elfhdr->e_entry;
 
 	//	Now map one page for the program's initial stack
