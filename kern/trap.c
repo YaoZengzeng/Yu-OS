@@ -245,6 +245,7 @@ page_fault_handler(struct Trapframe *tf)
 	// Handle kernel-mode page faults.
 
 	if (fault_va >= UTOP) {
+		panic("page_fault_handler fault_va >= UTOP");
 		goto fail;
 	}
 
@@ -275,6 +276,7 @@ page_fault_handler(struct Trapframe *tf)
 	//		To change what the user environment runs, modify 'curenv->env_tf'
 	//		(the 'tf' variable points at 'curenv->env_tf')
 	if (curenv->env_pgfault_upcall == NULL) {
+		panic("page_fault_handler curenv->env_pgfault_upcall is NULL");
 		goto fail;
 	}
 

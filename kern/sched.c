@@ -30,6 +30,5 @@ sched_yield(void)
 	if (envs[start].env_status == ENV_RUNNABLE || envs[start].env_status == ENV_RUNNING) {
 		env_run(&envs[start]);
 	}
-
 	monitor(NULL);
 }

@@ -79,6 +79,8 @@ sys_exofork(void)
 
 	e->env_status = ENV_NOT_RUNNABLE;
 
+	e->env_pgfault_upcall = curenv->env_pgfault_upcall;
+
 
 	curenv->env_tf.tf_regs.reg_eax = e->env_id;
 	e->env_tf.tf_regs.reg_eax = 0;
@@ -213,6 +215,7 @@ sys_page_map(envid_t srcenvid, void *srcva,
 		return -E_INVAL;
 	}
 	if (perm & ~(PTE_P | PTE_U | PTE_W | PTE_AVAIL)) {
+		panic("sys_page_map failed 3");
 		return -E_INVAL;
 	}
 

@@ -431,7 +431,7 @@ page_insert(pde_t *pgdir, struct PageInfo *pp, void *va, int perm)
 		// virtual address in the same pgdir
 		if (PTE_ADDR(*pte) == page2pa(pp)) {
 			// clear all permission first
-			*pte &= ~0x3FF;
+			*pte &= ~0xFFF;
 			*pte |= (perm|PTE_P);
 			return 0;
 		}

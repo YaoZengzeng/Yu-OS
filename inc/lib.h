@@ -59,4 +59,7 @@ sys_exofork(void)
 	return ret;
 }
 
+// fork.c
+envid_t fork(void);
+
 #endif 	/* YUOS_INC_LIB_H */
