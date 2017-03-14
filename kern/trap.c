@@ -6,6 +6,9 @@
 #include <kern/pmap.h>
 #include <kern/env.h>
 #include <kern/syscall.h>
+#include <kern/sched.h>
+#include <kern/cpu.h>
+#include <kern/picirq.h>
 
 static struct Taskstate ts;
 
@@ -54,6 +57,9 @@ static const char *trapname(int trapno)
 	if (trapno == T_SYSCALL) {
 		return "System call";
 	}
+	if (trapno >= IRQ_OFFSET && trapno < IRQ_OFFSET + 16) {
+		return "Hardware Interrupt";
+	}
 
 	return "(unknown trap)";
 }
@@ -82,26 +88,28 @@ trap_init(void)
 	extern void trap_mchk();
 	extern void trap_simderr();
 	extern void trap_syscall();
+	extern void irq_timer();
 
-	SETGATE(idt[T_DIVIDE], 	1, GD_KT, trap_divide, 	3);
-	SETGATE(idt[T_DEBUG], 	1, GD_KT, trap_debug, 	3);
-	SETGATE(idt[T_NMI], 	1, GD_KT, trap_nmi, 	3);
-	SETGATE(idt[T_BRKPT], 	1, GD_KT, trap_brkpt, 	3);
-	SETGATE(idt[T_OFLOW], 	1, GD_KT, trap_oflow, 	3);
-	SETGATE(idt[T_BOUND], 	1, GD_KT, trap_bound, 	3);
-	SETGATE(idt[T_ILLOP], 	1, GD_KT, trap_illop, 	3);
-	SETGATE(idt[T_DEVICE], 	1, GD_KT, trap_device, 	3);
-	SETGATE(idt[T_DBLFLT], 	1, GD_KT, trap_dblflt, 	3);
-	SETGATE(idt[T_TSS], 	1, GD_KT, trap_tss, 	3);
-	SETGATE(idt[T_SEGNP], 	1, GD_KT, trap_segnp, 	3);
-	SETGATE(idt[T_STACK], 	1, GD_KT, trap_stack, 	3);
-	SETGATE(idt[T_GPFLT], 	1, GD_KT, trap_gpflt, 	3);
-	SETGATE(idt[T_PGFLT], 	1, GD_KT, trap_pgflt, 	3);
-	SETGATE(idt[T_FPERR], 	1, GD_KT, trap_fperr, 	3);
-	SETGATE(idt[T_ALIGN], 	1, GD_KT, trap_align, 	3);
-	SETGATE(idt[T_MCHK], 	1, GD_KT, trap_mchk, 	3);
-	SETGATE(idt[T_SIMDERR], 1, GD_KT, trap_simderr, 3);
-	SETGATE(idt[T_SYSCALL],	1, GD_KT, trap_syscall, 3);
+	SETGATE(idt[T_DIVIDE], 	0, GD_KT, trap_divide, 	3);
+	SETGATE(idt[T_DEBUG], 	0, GD_KT, trap_debug, 	3);
+	SETGATE(idt[T_NMI], 	0, GD_KT, trap_nmi, 	3);
+	SETGATE(idt[T_BRKPT], 	0, GD_KT, trap_brkpt, 	3);
+	SETGATE(idt[T_OFLOW], 	0, GD_KT, trap_oflow, 	3);
+	SETGATE(idt[T_BOUND], 	0, GD_KT, trap_bound, 	3);
+	SETGATE(idt[T_ILLOP], 	0, GD_KT, trap_illop, 	3);
+	SETGATE(idt[T_DEVICE], 	0, GD_KT, trap_device, 	3);
+	SETGATE(idt[T_DBLFLT], 	0, GD_KT, trap_dblflt, 	3);
+	SETGATE(idt[T_TSS], 	0, GD_KT, trap_tss, 	3);
+	SETGATE(idt[T_SEGNP], 	0, GD_KT, trap_segnp, 	3);
+	SETGATE(idt[T_STACK], 	0, GD_KT, trap_stack, 	3);
+	SETGATE(idt[T_GPFLT], 	0, GD_KT, trap_gpflt, 	3);
+	SETGATE(idt[T_PGFLT], 	0, GD_KT, trap_pgflt, 	3);
+	SETGATE(idt[T_FPERR], 	0, GD_KT, trap_fperr, 	3);
+	SETGATE(idt[T_ALIGN], 	0, GD_KT, trap_align, 	3);
+	SETGATE(idt[T_MCHK], 	0, GD_KT, trap_mchk, 	3);
+	SETGATE(idt[T_SIMDERR], 0, GD_KT, trap_simderr, 3);
+	SETGATE(idt[T_SYSCALL],	0, GD_KT, trap_syscall, 3);
+	SETGATE(idt[IRQ_OFFSET + IRQ_TIMER], 0, GD_KT, irq_timer, 3);
 
 	// Per-CPU setup
 	trap_init_percpu();
@@ -193,14 +201,27 @@ trap_dispatch(struct Trapframe *tf)
 		return;
 	}
 
+	// Handle clock interrupts. Don't forget to acknowledge the
+	// interrupt using lapic_eoi() before calling to the scheduler!
+	if (tf->tf_trapno == IRQ_OFFSET + IRQ_TIMER) {
+		lapic_eoi();
+		sched_yield();
+	}
+
 	// Unexpected trap: The user process or the kernel has a bug.
 	print_trapframe(tf);
-	panic("trap_dispatch not finished yet\n");
+	if (tf->tf_cs == GD_KT) {
+		panic("unhandled trap in kernel");
+	} else {
+		env_destroy(curenv);
+		return;
+	}
 }
 
 void
 trap(struct Trapframe *tf)
 {
+	//print_trapframe(tf);
 	// The environment may have set DF and some versions
 	// of GCC rely on DF being clear
 	asm volatile("cld" ::: "cc");

@@ -498,6 +498,44 @@ tlb_invalidate(pde_t *pgdir, void *va)
 }
 
 //
+// Reverse size bytes in the MMIO region and map [pa, pa+size) at this
+// location. Return the base of the reserved region. size does *not*
+// have to be multiple of PGSIZE.
+//
+void *
+mmio_map_region(physaddr_t pa, size_t size) {
+	// Where to start the next region. Initially, this is the
+	// beginning of the MMIO region. Because this is static, its
+	// value will be preserved between calls to mmio_map_region
+	// (just like nextfree in boot_alloc).
+	static uintptr_t base = MMIOBASE;
+
+	// Reserve size bytes of virtual memory starting at base and
+	// map physical pages [pa, pa+size) to virtual addresses
+	// [base, base+size). Since this is device memory and not
+	// regular DRAM, we'll have to tell the CPU that it isn't
+	// safe to cache access to this memory. Luckily, the page
+	// tables provide bits for this purpose; simply create the
+	// mapping with PTE_PCD|PTE_PWT (cache-disable and
+	// write-through) in addition to PTE_W.
+	//
+	// Be sure to round size up to a multiple of PGSIZE and to
+	// handle if this reservation would overflow MMIOLIM (it's
+	// okay to simply panic if this happens).
+	//
+	// Hint: The staff solution uses boot_map_region.
+	//
+	void *ret = (void *)base;
+
+	size = ROUNDUP(size, PGSIZE);
+	boot_map_region(kern_pgdir, base, size, pa, PTE_P|PTE_W|PTE_PCD|PTE_PWT);
+
+	base += size;
+
+	return ret;
+}
+
+//
 // Map [va, va+size) of virtual address space to physical [pa, pa+size)
 // in the page table rooted at pgdir. Size is a multiple of PGSIZE, and
 // va and pa are both page-aligned.
