@@ -6,7 +6,8 @@ LIB_SRCFILES :=	lib/libmain.c \
 			lib/string.c \
 			lib/exit.c \
 			lib/panic.c \
-			lib/fork.c
+			lib/fork.c \
+			lib/ipc.c
 
 LIB_SRCFILES := $(LIB_SRCFILES) \
 			lib/pgfault.c \

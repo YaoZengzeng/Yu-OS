@@ -301,6 +301,121 @@ sys_env_set_pgfault_upcall(envid_t envid, void *func)
 	return 0;
 }
 
+// Try to send 'value' to the target env 'envid'.
+// If srcva < UTOP, then also send page currently mapped at 'srcva',
+// so that receiver gets a duplicate mapping of the same page.
+//
+// The send fails with a return value of -E_IPC_NOT_RECV if the
+// target is not blocked, waiting for an IPC.
+//
+// The send also can fail for the other reasons listed below.
+//
+// Otherwise, the send succeeds, and the target's ipc fields are
+// updated as follows:
+//	env_ipc_recving is set to 0 to block future sends;
+//	env_ipc_from is set to the sending envid;
+//	env_ipc_value is set to the 'value' parameter;
+//	env_ipc_perm is set to 'perm' if a page was transfered, 0 otherwise.
+// The target environment is marked runnable again, returning 0
+// from the paused sys_ipc_recv system call. (Hint: does the
+// sys_ipc_recv function ever actually return?)
+//
+// If the sender wants to send a page but the receiver isn't asking for one,
+// then no page mapping is transfered, but no error occurs.
+// The ipc only happens when no errors occur.
+//
+// Returns 0 on success, < 0 on error.
+// Errors are:
+//	-E_BAD_ENV if environment envid doesnt't currently exist.
+//	-E_IPC_NOT_RECV if envid is not currently blocked in sys_ipc_recv,
+//	-E_INVAL if srcva < UTOP but srcva is not page-aligned.
+//	-E_INVAL if srcva < UTOP and perm is inappropriate
+//		(see sys_page_alloc).
+//	-E_INVAL if srcva < UTOP but srcva is not mapped in the caller's
+//		address space.
+//	-E_INVAL if (perm & PTE_W), but srcva is read-only in the
+//		current environment's address space.
+//	-E_NO_MEM if there's not enough memory to map srcva in envid's
+//		address space.
+static int
+sys_ipc_try_send(envid_t envid, uint32_t value, void *srcva, unsigned perm)
+{
+	int r;
+	struct Env *e;
+	struct PageInfo *page;
+	pte_t *pte;
+
+	r = envid2env(envid, &e, 0);
+	if (r != 0) {
+		return r;
+	}
+
+	if (e->env_ipc_recving == 0) {
+		return -E_IPC_NOT_RECV;
+	}
+
+	if ((uint32_t)srcva < UTOP) {
+		if ((uint32_t)srcva % PGSIZE != 0) {
+			return -E_INVAL;
+		}
+		if ((perm & PTE_U) == 0 || (perm & PTE_P) == 0) {
+			return -E_INVAL;
+		}
+		if (perm & ~(PTE_P | PTE_U | PTE_W | PTE_AVAIL)) {
+			return -E_INVAL;
+		}
+
+		page = page_lookup(curenv->env_pgdir, srcva, &pte);
+		if (page == NULL) {
+			return -E_INVAL;
+		}
+		if ((*pte & PTE_W) == 0 && perm & PTE_W) {
+			return -E_INVAL;
+		}
+
+		if ((uint32_t)(e->env_ipc_dstva) < UTOP) {
+			r = page_insert(e->env_pgdir, page, e->env_ipc_dstva, perm);
+			if (r != 0) {
+				return r;
+			}
+			e->env_ipc_perm = perm;
+		}
+	}
+
+	e->env_ipc_value = value;
+	e->env_ipc_from = curenv->env_id;
+	e->env_ipc_recving = 0;
+	e->env_status = ENV_RUNNABLE;
+
+	return 0;
+}
+
+// Block until a value is ready. Record that we want to receive
+// using the env_ipc_recving and env_ipc_dstva fields of struct Env,
+// mark ourself not runnable, and then give up the CPU.
+//
+// If 'dstva' is < UTOP, then we are willing to receive a page of data.
+// 'dstva' is the virtual address at which the sent page should be mapped.
+//
+// This function only returns on error, but the system call will eventually
+// return 0 on success.
+// Return < 0 on error. Errors are:
+//	-E_INVAL if dstva < UTOP but dstva is not page-aligned.
+static int
+sys_ipc_recv(void *dstva)
+{
+	if ((uint32_t) dstva < UTOP && (unsigned)dstva/PGSIZE != 0) {
+		return -E_INVAL;
+	}
+
+	curenv->env_ipc_recving = 1;
+	curenv->env_ipc_dstva = dstva;
+	curenv->env_status = ENV_NOT_RUNNABLE;
+	curenv->env_tf.tf_regs.reg_eax = 0;
+	sched_yield();
+
+	return 0;
+}
 
 // Dispatches to the correct kernel function, passing the arguments.
 int32_t
@@ -341,6 +456,12 @@ syscall(uint32_t syscallno, uint32_t a1, uint32_t a2, uint32_t a3, uint32_t a4, 
 
 	case SYS_env_set_pgfault_upcall:
 		return (int32_t)sys_env_set_pgfault_upcall((envid_t)a1, (void *)a2);
+
+	case SYS_ipc_try_send:
+		return (int32_t)sys_ipc_try_send((envid_t)a1, (uint32_t)a2, (void *)a3, (unsigned)a4);
+
+	case SYS_ipc_recv:
+		return (int32_t)sys_ipc_recv((void *)a1);
 
 	default:
 		return -E_NO_SYS;

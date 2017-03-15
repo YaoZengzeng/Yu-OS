@@ -1,0 +1,73 @@
+// User-level IPC library routines
+
+#include <inc/lib.h>
+
+// Receive a value via IPC and return it.
+// If 'pg' is nonnull, then any page sent by the sender will be mapped at
+//	that address.
+// If 'from_env_store' is nonnull, then store the IPC sender's envid in
+//	*from_env_store*.
+// If 'perm_store' is nonnull, then store the IPC sender's page permission
+//	in *perm_store (this is nonzero iff a page was successfully
+//	transferred to 'pg').
+// If the system call fails, then store 0 in *fromenv and *perm (if
+//	they're nonnull) and return the error.
+// Otherwise, return the value sent by the sender
+//
+// Hint:
+//	Use 'thisenv' to discover the value and who sent it.
+//	If 'pg' is null, pass sys_ipc_recv a value that it will understand
+//	as meaning "no page". (Zero is not the right value, since that's
+//	a perfectly valid place to map a page.)
+int32_t
+ipc_recv(envid_t *from_env_store, void *pg, int *perm_store)
+{
+	int r;
+
+	pg = pg == NULL ? (void *)UTOP : pg;
+
+	r = sys_ipc_recv(pg);
+	if (r != 0) {
+		return r;
+	}
+
+	if (from_env_store != NULL) {
+		*from_env_store = r == 0 ? thisenv->env_ipc_from : 0;
+	}
+	if (perm_store != NULL) {
+		*perm_store = r == 0 ? thisenv->env_ipc_perm : 0;
+	}
+
+	return thisenv->env_ipc_value;
+}
+
+// Send 'val' (and 'pg' with 'perm', if 'pg' is nonnull) to 'toenv'
+// This function keeps trying until  it succeeds.
+// It should panic() on any error other than -E_IPC_NOT_RECV.
+//
+// Hints:
+//		Use sys_yield() to be CPU-friendly.
+//		If 'pg' is null, pass sys_ipc_try_send a value that it will understand
+//		as meaning "no page". (Zero is not the right value).
+void
+ipc_send(envid_t to_env, uint32_t val, void *pg, int perm)
+{
+	int r, i;
+
+	pg = pg == NULL ? (void *)UTOP : pg;
+
+	for (;;) {
+		for (i = 0; i < 10; i++) {
+			r = sys_ipc_try_send(to_env, val, pg, perm);
+			switch(r) {
+			case 0:
+				return;
+			case -E_IPC_NOT_RECV:
+				break;
+			default:
+				panic("ipc_send failed: %e", r);
+			}
+		}
+		sys_yield();
+	}
+}
