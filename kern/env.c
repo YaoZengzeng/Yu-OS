@@ -225,7 +225,6 @@ env_alloc(struct Env **newenv_store, envid_t parent_id)
 
 	// Set the basic status variables.
 	e->env_parent_id = parent_id;
-	e->env_type = ENV_TYPE_USER;
 	e->env_status = ENV_RUNNABLE;
 	e->env_runs = 0;
 
@@ -409,6 +408,10 @@ env_create(uint8_t *binary, enum EnvType type)
 	load_icode(e, binary);
 
 	e->env_type = type;
+
+	if (type == ENV_TYPE_FS) {
+		e->env_tf.tf_eflags |= FL_IOPL_MASK;
+	}
 
 	return;
 }

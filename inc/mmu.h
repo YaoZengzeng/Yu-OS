@@ -84,6 +84,7 @@
 
 // Eflags register
 #define FL_IF		0x00000200  // Interrupt Flag
+#define FL_IOPL_MASK	0x00003000	// I/O Privilege Level bitmask
 
  /*
   * Segmentation data structures and constants.

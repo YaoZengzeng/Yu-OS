@@ -15,6 +15,12 @@ OBJCOPY := objcopy
 OBJDUMP := objdump
 NM := nm
 
+# Native commands
+NCC := gcc -pipe
+NATIVE_CFLAGS := -I$(TOP) -MD -Wall
+TAR := gtar
+
+
 # Compiler flags
 # -fno-builtin is required to avoid refs to undefined functions in the kernel.
 # Only optimize to -O1 to discourage inlining, which complicates backtraces.
@@ -44,9 +50,12 @@ include boot/Makefrag
 include kern/Makefrag
 include lib/Makefrag
 include user/Makefrag
+include fs/Makefrag
 
 QEMUOPTS = -hda $(OBJDIR)/kern/kernel.img -serial mon:stdio -gdb tcp::$(GDBPORT)
+#QEMUOPTS += -hdb $(OBJDIR)/fs/fs.img
 IMAGES = $(OBJDIR)/kern/kernel.img
+#IMAGES += $(OBJDIR)/fs/fs.img
 
 qemu: $(IMAGES) pre-qemu
 	$(QEMU) $(QEMUOPTS)
