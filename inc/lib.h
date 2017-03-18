@@ -17,6 +17,7 @@
 #include <inc/env.h>
 #include <inc/memlayout.h>
 #include <inc/syscall.h>
+#include <inc/fs.h>
 
 // main user program
 void	umain(int argc, char **argv);

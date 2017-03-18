@@ -1,4 +1,7 @@
-FSOFILES := $(OBJDIR)/fs/serv.o
+FSOFILES := $(OBJDIR)/fs/serv.o \
+			$(OBJDIR)/fs/fs.o \
+			$(OBJDIR)/fs/ide.o \
+			$(OBJDIR)/fs/bc.o
 
 $(OBJDIR)/fs/%.o: fs/%.c fs/fs.h
 	@echo + cc[USER] $<

@@ -31,6 +31,17 @@ strnlen(const char *s, size_t size)
 	return n;
 }
 
+char *
+strcpy(char *dst, const char *src)
+{
+	char *ret;
+
+	ret = dst;
+	while ((*dst++ = *src++) != '\0')
+		/* do nothing */;
+	return ret;
+}
+
 // Return a pointer to the first occurance of 'c' in 's'.
 // or a null pointer if the string has no 'c'.
 char *
