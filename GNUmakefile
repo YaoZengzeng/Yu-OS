@@ -53,9 +53,9 @@ include user/Makefrag
 include fs/Makefrag
 
 QEMUOPTS = -hda $(OBJDIR)/kern/kernel.img -serial mon:stdio -gdb tcp::$(GDBPORT)
-#QEMUOPTS += -hdb $(OBJDIR)/fs/fs.img
+QEMUOPTS += -hdb $(OBJDIR)/fs/fs.img
 IMAGES = $(OBJDIR)/kern/kernel.img
-#IMAGES += $(OBJDIR)/fs/fs.img
+IMAGES += $(OBJDIR)/fs/fs.img
 
 qemu: $(IMAGES) pre-qemu
 	$(QEMU) $(QEMUOPTS)

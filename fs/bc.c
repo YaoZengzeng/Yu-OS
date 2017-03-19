@@ -93,7 +93,6 @@ flush_block(void *addr)
 
 	addr = (void *) ROUNDDOWN(addr, PGSIZE);
 
-	cprintf("flush_block, blockno is %d\n", blockno);
 	if ((r = ide_write(blockno * BLKSECTS, addr, BLKSECTS)) != 0) {
 		panic("in flush_block ide_write failed: %e", r);
 	}
