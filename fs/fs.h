@@ -23,9 +23,15 @@ int	ide_write(uint32_t secno, const void *src, size_t nsecs);
 /* bc.c */
 void*	diskaddr(uint32_t blockno);
 void	bc_init(void);
+void	flush_block(void *addr);
 
 /* fs.c */
 void fs_init(void);
+int file_open(const char *path, struct File **f);
 
 /* int map_block(uint32_t); */
 bool block_is_free(uint32_t blockno);
+int alloc_block(void);
+
+/* test.c */
+void fs_test(void);

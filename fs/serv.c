@@ -66,4 +66,5 @@ umain(int argc, char **argv)
 
 	serve_init();
 	fs_init();
+	fs_test();
 }
