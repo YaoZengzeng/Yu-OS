@@ -24,7 +24,7 @@ fs_test(void)
 		panic("in fs_test alloc_block: %e", r);
 	}
 	// check that block was free
-	assert(bits[r/32] & (1 << (1 << (r % 32))));
+	assert(bits[r/32] & (1 << (r % 32)));
 	// and is not free any more
 	assert(!(bitmap[r/32] & (1 << (r % 32))));
 	cprintf("alloc_block is good\n");

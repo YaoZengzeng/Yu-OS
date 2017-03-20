@@ -4,6 +4,10 @@ FSOFILES := $(OBJDIR)/fs/serv.o \
 			$(OBJDIR)/fs/bc.o \
 			$(OBJDIR)/fs/test.o
 
+FSIMGTXTFILES := 	fs/newmotd
+
+FSIMGFILES := $(FSIMGTXTFILES)
+
 $(OBJDIR)/fs/%.o: fs/%.c fs/fs.h
 	@echo + cc[USER] $<
 	@mkdir -p $(@D)
