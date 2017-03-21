@@ -67,7 +67,6 @@ alloc_block(void)
 	for (i = 1; i < super->s_nblocks; i++) {
 		if (bitmap[i/32] & (1 << (i % 32))) {
 			bitmap[i/32] &= ~(1 << (i % 32));
-			cprintf("allocated block number is %d\n", i);
 			flush_block((void *)bitmap);
 			return i;
 		}
@@ -143,6 +142,7 @@ fs_init(void)
 static int
 file_block_walk(struct File *f, uint32_t filebno, uint32_t **ppdiskbno, bool alloc)
 {
+	int r;
 	uint32_t *indirect;
 
 	if (filebno >= NDIRECT + NINDIRECT) {
@@ -152,6 +152,13 @@ file_block_walk(struct File *f, uint32_t filebno, uint32_t **ppdiskbno, bool all
 	if (filebno < NDIRECT) {
 		*ppdiskbno = &(f->f_direct[filebno]);
 	} else {
+		if (f->f_indirect == 0) {
+			if ((r = alloc_block()) < 0) {
+				return r;
+			}
+			f->f_indirect = r;
+			memset(diskaddr(f->f_indirect), 0, BLKSIZE);
+		}
 		indirect = (uint32_t *)diskaddr(f->f_indirect);
 		*ppdiskbno = &indirect[filebno - NDIRECT];
 	}
@@ -175,6 +182,13 @@ file_get_block(struct File *f, uint32_t filebno, char **blk)
 
 	if ((r = file_block_walk(f, filebno, &pdiskbno, false)) != 0) {
 		return r;
+	}
+
+	if (*pdiskbno == 0) {
+		if ((r = alloc_block()) < 0) {
+			return r;
+		}
+		*pdiskbno = r;
 	}
 
 	*blk = (char *)diskaddr(*pdiskbno);
@@ -296,4 +310,86 @@ int
 file_open(const char *path, struct File **pf)
 {
 	return walk_path(path, 0, pf, 0);
+}
+
+// Remove a block from file f. If it's not there, just silently succeed.
+// Returns 0 on success, < 0 on error.
+static int
+file_free_block(struct File *f, uint32_t filebno)
+{
+	int r;
+	uint32_t *ptr;
+
+	if ((r = file_block_walk(f, filebno, &ptr, 0)) < 0) {
+		return r;
+	}
+	if (*ptr) {
+		free_block(*ptr);
+		*ptr = 0;
+	}
+	return 0;
+}
+
+// Remove any blocks currently used by file 'f',
+// but not necessary for a file of size 'newsize'.
+// For both the old and new sizes, figure out the number of blocks required,
+// and then clear the blocks from new_nblocks to old_nblocks.
+// If the new_nblocks is no more than NDIRECT, and the indirect block has
+// been allocated (f->f_indirect != 0), then free the indirect block too.
+// (Remember to clear the f->f_indirect pointer so we'll know
+// whether it's valid!)
+// Do not change f->f_size.
+static void
+file_truncate_blocks(struct File *f, off_t newsize)
+{
+	int r;
+	uint32_t bno, old_nblocks, new_nblocks;
+
+	old_nblocks = (f->f_size + BLKSIZE - 1) / BLKSIZE;
+	new_nblocks = (newsize + BLKSIZE - 1) / BLKSIZE;
+	for (bno = new_nblocks; bno < old_nblocks; bno++) {
+		if ((r = file_free_block(f, bno)) < 0) {
+			cprintf("warning: file_free_block: %e", r);
+		}
+	}
+
+	if (new_nblocks <= NDIRECT && f->f_indirect) {
+		free_block(f->f_indirect);
+		f->f_indirect = 0;
+	}
+}
+
+// Set the size of file f, truncating or extending as necessary.
+int
+file_set_size(struct File *f, off_t newsize)
+{
+	if (f->f_size > newsize) {
+		file_truncate_blocks(f, newsize);
+	}
+	f->f_size = newsize;
+	flush_block(f);
+	return 0;
+}
+
+// Flush the contents and metadata of file f out to disk.
+// Loop over all the blocks in file.
+// Translate the file block number into a disk block number
+// and then check whether that disk block is dirty. If so, write it out.
+void
+file_flush(struct File *f)
+{
+	int i;
+	uint32_t *pdiskbno;
+
+	for (i = 0; i < (f->f_size + BLKSIZE - 1) / BLKSIZE; i++) {
+		if (file_block_walk(f, i, &pdiskbno, 0) < 0 ||
+			pdiskbno == NULL || *pdiskbno == 0) {
+			continue;
+		}
+		flush_block(diskaddr(*pdiskbno));
+	}
+	flush_block(f);
+	if (f->f_indirect) {
+		flush_block(diskaddr(f->f_indirect));
+	}
 }
