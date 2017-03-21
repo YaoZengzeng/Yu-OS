@@ -404,7 +404,7 @@ sys_ipc_try_send(envid_t envid, uint32_t value, void *srcva, unsigned perm)
 static int
 sys_ipc_recv(void *dstva)
 {
-	if ((uint32_t) dstva < UTOP && (unsigned)dstva/PGSIZE != 0) {
+	if ((uint32_t) dstva < UTOP && (unsigned)dstva % PGSIZE != 0) {
 		return -E_INVAL;
 	}
 

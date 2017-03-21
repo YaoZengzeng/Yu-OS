@@ -42,6 +42,17 @@ strcpy(char *dst, const char *src)
 	return ret;
 }
 
+int
+strncmp(const char *p, const char *q, size_t n)
+{
+	while (n > 0 && *p && *p == *q)
+		n--, p++, q++;
+	if (n == 0)
+		return 0;
+	else
+		return (int) ((unsigned char) *p - (unsigned char) *q);
+}
+
 // Return a pointer to the first occurance of 'c' in 's'.
 // or a null pointer if the string has no 'c'.
 char *
@@ -165,6 +176,12 @@ memmove(void *dst, const void *src, size_t n)
 	return dst
 }
 #endif
+
+void *
+memcpy(void *dst, const void *src, size_t n)
+{
+	return memmove(dst, src, n);
+}
 
 int
 memcmp(const void *v1, const void *v2, size_t n)

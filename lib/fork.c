@@ -29,6 +29,7 @@ pgfault(struct UTrapframe *utf)
 		if (r != 0) {
 			panic("pgfault sys_page_alloc for page not present failed: %e", r);
 		}
+		return;
 	}
 
 	if (!(uvpt[(unsigned)addr/PGSIZE] & PTE_COW)) {

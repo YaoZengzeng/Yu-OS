@@ -47,7 +47,8 @@ KERN_BINFILES := 	user/hello	\
 				user/faultallocbad \
 				user/forktree \
 				user/spin \
-				user/pingpong
+				user/pingpong \
+				user/sendpage
 
 KERN_BINFILES += fs/fs
 
