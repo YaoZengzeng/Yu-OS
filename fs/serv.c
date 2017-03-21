@@ -7,6 +7,8 @@
 
 #include "fs.h"
 
+#define debug 1
+
 // The file system server maintains three structures
 // for each open file.
 //
@@ -41,6 +43,9 @@ struct OpenFile opentab[MAXOPEN] = {
 	{ 0, 0, 1, 0}
 };
 
+// Virtual address at which to receive page mappings containing client requests.
+union Fsipc *fsreq = (union Fsipc *)0x0ffff000;
+
 void
 serve_init(void)
 {
@@ -50,6 +55,39 @@ serve_init(void)
 		opentab[i].o_fileid = i;
 		opentab[i].o_fd = (struct Fd*)va;
 		va += PGSIZE;
+	}
+}
+
+void
+serve(void)
+{
+	uint32_t req, whom;
+	int perm, r;
+	void *pg;
+
+	while(1) {
+		perm = 0;
+		req = ipc_recv((int32_t *) &whom, fsreq, &perm);
+		if (debug) {
+			cprintf("fs req %d from %08x [page %08x: %s]\n",
+				req, whom, uvpt[PGNUM(fsreq)], fsreq);
+		}
+
+		// All requests must contain an argument page
+		if (!(perm & PTE_P)) {
+			cprintf("Invalid request from %08x: no argument page\n", whom);
+			continue;	// just leave it hanging...
+		}
+
+		pg = NULL;
+		if (req = FSREQ_OPEN) {
+			r = serve_open(whom, (struct Fsreq_open*)fsreq, &pg, &perm);
+		} else {
+			cprintf("Invalid request code %d from %08x\n", req, whom);
+			r = -E_INVAL;
+		}
+		ipc_send(whom, r, pg, perm);
+		sys_page_unmap(0, fsreq);
 	}
 }
 
@@ -67,4 +105,5 @@ umain(int argc, char **argv)
 	serve_init();
 	fs_init();
 	fs_test();
+	serve();
 }
