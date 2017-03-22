@@ -71,3 +71,19 @@ ipc_send(envid_t to_env, uint32_t val, void *pg, int perm)
 		sys_yield();
 	}
 }
+
+// Find the first environment of the given type. We'll use this to
+// find special environments.
+// Returns 0 if no such environment exists.
+envid_t
+ipc_find_env(enum EnvType type)
+{
+	int i;
+	for (i = 0; i < NENV; i++) {
+		if (envs[i].env_type == type) {
+			return envs[i].env_id;
+		}
+	}
+
+	return 0;
+}

@@ -228,6 +228,39 @@ dir_lookup(struct File *dir, const char *name, struct File **file)
 	return -E_NOT_FOUND;
 }
 
+// Set *file to point at a free File structure in dir. The caller is
+// respoinsible for filling in the File fields.
+static int
+dir_alloc_file(struct File *dir, struct File **file)
+{
+	int r;
+	uint32_t nblock, i, j;
+	char *blk;
+	struct File *f;
+
+	assert((dir->f_size % BLKSIZE) == 0);
+	nblock = dir->f_size / BLKSIZE;
+	for (i = 0; i < nblock; i++) {
+		if ((r = file_get_block(dir, i, &blk)) < 0) {
+			return r;
+		}
+		f = (struct File*) blk;
+		for (j = 0; j < BLKFILES; j++) {
+			if (f[j].f_name[0] == '\0') {
+				*file = &f[j];
+				return 0;
+			}
+		}
+	}
+	dir->f_size += BLKSIZE;
+	if ((r = file_get_block(dir, i, &blk)) < 0) {
+		return r;
+	}
+	f = (struct File*) blk;
+	*file = &f[0];
+	return 0;
+}
+
 // Skip over slashes.
 static const char*
 skip_slash(const char *p)
@@ -303,6 +336,32 @@ walk_path(const char *path, struct File **pdir, struct File **pf, char *lastelem
 // ----------------------------------------------------------
 // File operation
 // ----------------------------------------------------------
+
+// Create "path". On success set *pf to point at the file and return 0.
+// On error return < 0.
+int
+file_create(const char *path, struct File **pf)
+{
+	char name[MAXNAMELEN];
+	int r;
+	struct File *dir, *f;
+
+	if ((r = walk_path(path, &dir, &f, name)) == 0) {
+		return -E_FILE_EXISTS;
+	}
+	if (r != -E_NOT_FOUND || dir == 0) {
+		return r;
+	}
+	if ((r = dir_alloc_file(dir, &f)) < 0) {
+		return r;
+	}
+
+	strcpy(f->f_name, name);
+	*pf = f;
+	file_flush(dir);
+
+	return 0;
+}
 
 // Open "path". On success set *pf to point at the file and return 0.
 // On error return < 0.

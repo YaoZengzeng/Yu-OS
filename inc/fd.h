@@ -8,6 +8,11 @@
 #include <inc/types.h>
 #include <inc/fs.h>
 
+// Per-device-class file descriptor operations
+struct Dev {
+	int dev_id;
+};
+
 struct FdFile {
 	int id;
 };
@@ -21,3 +26,7 @@ struct Fd {
 		struct FdFile fd_file;
 	};
 };
+
+extern struct Dev devfile;
+
+#endif /* YUOS_INC_FD_H */

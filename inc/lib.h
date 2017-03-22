@@ -18,9 +18,10 @@
 #include <inc/memlayout.h>
 #include <inc/syscall.h>
 #include <inc/fs.h>
+#include <inc/fd.h>
 
 // main user program
-void	umain(int argc, char **argv);
+void umain(int argc, char **argv);
 
 // libmain.c or entry.S
 extern const char *binaryname;
@@ -65,8 +66,24 @@ sys_exofork(void)
 // ipc.c
 void ipc_send(envid_t to_env, uint32_t value, void *pg, int perm);
 int32_t ipc_recv(envid_t *from_env_store, void *pg, int *perm_store);
+envid_t ipc_find_env(enum EnvType type);
 
 // fork.c
+#define PTE_SHARE	0x400
 envid_t fork(void);
+
+// pageref.c
+int pageref(void *addr);
+
+/* File open modes */
+#define O_RDONLY	0x0000	/* open for reading only */
+#define O_WRONLY	0x0001	/* open for writing only */
+#define O_RDWR		0x0002	/* open for reading and writing */
+#define O_ACCMODE	0x0003	/* mask for above modes */
+
+#define O_CREAT		0x0100	/* create if nonexistent */
+#define O_TRUNC		0x0200	/* truncate to zero length */
+#define O_EXCL		0x0400	/* error if already exists */
+#define O_MKDIR		0x0800	/* create directory, not regular file */
 
 #endif 	/* YUOS_INC_LIB_H */

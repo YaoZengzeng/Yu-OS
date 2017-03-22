@@ -56,4 +56,19 @@ struct Super {
 	struct File s_root;		// Root directory node
 };
 
+// Definitions for requests from clients to file system
+enum {
+	FSREQ_OPEN = 1,
+};
+
+union Fsipc {
+	struct Fsreq_open {
+		char req_path[MAXPATHLEN];
+		int req_omode;
+	} open;
+
+	// Ensure Fsipc is one page
+	char _pad[PGSIZE];
+};
+
 #endif /* !YUOS_INC_FS_H */

@@ -7,6 +7,8 @@
 
 #include "fs.h"
 
+#define debug 1
+
 // The file system server maintains three structures
 // for each open file.
 //
@@ -41,6 +43,9 @@ struct OpenFile opentab[MAXOPEN] = {
 	{ 0, 0, 1, 0}
 };
 
+// Virtual address at which to receive page mappings containing client requests.
+union Fsipc *fsreq = (union Fsipc *)0x0ffff000;
+
 void
 serve_init(void)
 {
@@ -50,6 +55,151 @@ serve_init(void)
 		opentab[i].o_fileid = i;
 		opentab[i].o_fd = (struct Fd*)va;
 		va += PGSIZE;
+	}
+}
+
+// Allocate an open file.
+int
+openfile_alloc(struct OpenFile **o)
+{
+	int i, r;
+
+	// Find an available open-file table entry
+	for (i = 0; i < MAXOPEN; i++) {
+		switch(pageref(opentab[i].o_fd)) {
+		case 0:
+			if ((r = sys_page_alloc(0, opentab[i].o_fd, PTE_P | PTE_U | PTE_W))) {
+				return r;
+			}
+			/* fall through */
+		case 1:
+			opentab[i].o_fileid += MAXOPEN;
+			*o = &opentab[i];
+			memset(opentab[i].o_fd, 0, PGSIZE);
+			return (*o)->o_fileid;
+		}
+	}
+	return -E_MAX_OPEN;
+}
+
+// Open req->req_path in mode req->req_omode, storing the Fd page and
+// permissions to return to the calling environment in *pg_store and
+// *perm_store respectively.
+int
+serve_open(envid_t envid, struct Fsreq_open *req,
+	void **pg_store, int *perm_store)
+{
+	char path[MAXPATHLEN];
+	struct File *f;
+	int fileid;
+	int r;
+	struct OpenFile *o;
+
+	if (debug) {
+		cprintf("serve_open %08x %s 0x%x\n", envid, req->req_path, req->req_omode);
+	}
+
+	// Copy in the path, making sure it's null-terminated
+	memmove(path, req->req_path, MAXPATHLEN);
+	path[MAXPATHLEN-1] = 0;
+
+	// Find an open file ID
+	if ((r = openfile_alloc(&o)) < 0) {
+		if (debug) {
+			cprintf("openfile_alloc failed: %e\n", r);
+		}
+		return r;
+	}
+	fileid = r;
+
+	// Open the file
+	if (req->req_omode & O_CREAT) {
+		if ((r = file_create(path, &f)) < 0) {
+			if (!(req->req_omode & O_EXCL) && r == -E_FILE_EXISTS) {
+				goto try_open;
+			}
+			if (debug) {
+				cprintf("file_create failed: %e\n", r);
+			}
+			return r;
+		} else {
+try_open:
+			if ((r = file_open(path, &f)) < 0) {
+				if (debug) {
+					cprintf("file_open failed: %e\n", r);
+				}
+				return r;
+			}
+		}
+	}
+
+	// Truncate
+	if (req->req_omode & O_TRUNC) {
+		if ((r = file_set_size(f, 0)) < 0) {
+			if (debug) {
+				cprintf("file_set_size failed: %e\n", r);
+			}
+			return r;
+		}
+	}
+	if ((r = file_open(path, &f)) < 0) {
+		if (debug) {
+			cprintf("file_open failed: %e\n", r);
+		}
+		return r;
+	}
+
+	// Save the file pointer
+	o->o_file = f;
+
+	// Fill out the Fd structure
+	o->o_fd->fd_file.id = o->o_fileid;
+	o->o_fd->fd_omode = req->req_omode & O_ACCMODE;
+	o->o_fd->fd_dev_id = devfile.dev_id;
+	o->o_mode = req->req_omode;
+
+	if (debug) {
+		cprintf("sending success, page %08x\n", (uintptr_t) o->o_fd);
+	}
+
+	// Share the FD page with the caller by setting *pg_store,
+	// store its permission in *perm_store
+	*pg_store = o->o_fd;
+	*perm_store = PTE_P | PTE_U | PTE_W | PTE_SHARE;
+
+	return 0;
+}
+
+void
+serve(void)
+{
+	uint32_t req, whom;
+	int perm, r;
+	void *pg;
+
+	while(1) {
+		perm = 0;
+		req = ipc_recv((int32_t*) &whom, fsreq, &perm);
+		if (debug) {
+			cprintf("fs req %d from %08x [page %08x: %s]\n",
+				req, whom, uvpt[PGNUM(fsreq)], fsreq);
+		}
+
+		// All requests must contain an argument page
+		if (!(perm & PTE_P)) {
+			cprintf("Invalid request from %08x: no argument page\n", whom);
+			continue; // just leave it hanging...
+		}
+
+		pg = NULL;
+		if (req == FSREQ_OPEN) {
+			r = serve_open(whom, (struct Fsreq_open*)fsreq, &pg, &perm);
+		} else {
+			cprintf("Invalid request code %d from %08x\n", req, whom);
+			r = -E_INVAL;
+		}
+		ipc_send(whom, r, pg, perm);
+		sys_page_unmap(0, fsreq);
 	}
 }
 
@@ -67,4 +217,5 @@ umain(int argc, char **argv)
 	serve_init();
 	fs_init();
 	fs_test();
+	serve();
 }
