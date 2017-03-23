@@ -184,6 +184,41 @@ try_open:
 	return 0;
 }
 
+// Read at most ipc-read.req_n bytes from the current seek position
+// in ipc->read.req_fileid. Return the bytes read from the file to
+// the caller in ipc->readRet, then update the seek position. Returns
+// the number of bytes successfullly read, or < 0 on error.
+int
+serve_read(envid_t envid, union Fsipc *ipc)
+{
+	struct Fsreq_read *req = &ipc->read;
+	struct Fsret_read *ret = &ipc->readRet;
+	struct OpenFile *o;
+	off_t offset;
+	size_t count;
+	int r;
+
+	if (debug) {
+		cprintf("serve_read %08x %08x %08x\n", envid, req->req_fileid, req->req_n);
+	}
+
+	if ((r = openfile_lookup(envid, req->req_fileid, &o)) < 0) {
+		return r;
+	}
+
+	offset = o->o_fd->fd_offset;
+	count = req->req_n;
+
+	if ((r = file_read(o->o_file, ret->ret_buf, count, offset)) < 0) {
+		return r;
+	}
+
+	// update offset in fd
+	o->o_fd->fd_offset += r;
+
+	return r;
+}
+
 // Stat ipc->stat.req_fileid. Return the file's struct Stat to the
 // caller in ipc->statRet.
 int
@@ -213,7 +248,8 @@ typedef int (*fshandler)(envid_t envid, union Fsipc *req);
 fshandler handlers[] = {
 	// Open is handled specially because it passes pages
 	/* [FSREQ_OPEN] = (fshandler)serve_open, */
-	[FSREQ_STAT] = 		serve_stat
+	[FSREQ_STAT] = 		serve_stat,
+	[FSREQ_READ] = 		serve_read
 };
 #define NHANDLERS (sizeof(handlers)/sizeof(handlers[0]))
 

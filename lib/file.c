@@ -31,11 +31,13 @@ fsipc(unsigned type, void *dstva)
 }
 
 static int devfile_stat(struct Fd *fd, struct Stat *stat);
+static ssize_t devfile_read(struct Fd *fd, void *buf, size_t n);
 
 struct Dev devfile =
 {
 	.dev_id = 'f',
-	.dev_stat = devfile_stat
+	.dev_stat = devfile_stat,
+	.dev_read = devfile_read
 };
 
 
@@ -52,4 +54,29 @@ devfile_stat(struct Fd *fd, struct Stat *st)
 	st->st_size = fsipcbuf.statRet.ret_size;
 	st->st_isdir = fsipcbuf.statRet.ret_isdir;
 	return 0;
+}
+
+// Read at most 'n' bytes from 'fd' at the current position into 'buf'.
+//
+// Returns:
+// 	The number of bytes successfully read.
+//	< 0 on error.
+static ssize_t
+devfile_read(struct Fd *fd, void *buf, size_t n)
+{
+	// Make an FSREQ_READ request to the file system server after
+	// filling fsipcbuf.read with the request arguments. The
+	// bytes read will be written back to fsipcbuf by the file
+	// system server.
+	int r;
+
+	fsipcbuf.read.req_fileid = fd->fd_file.id;
+	fsipcbuf.read.req_n = n;
+	if ((r = fsipc(FSREQ_READ, NULL)) < 0) {
+		return r;
+	}
+	assert(r <= n);
+	assert(r <= PGSIZE);
+	memmove(buf, fsipcbuf.readRet.ret_buf, r);
+	return r;
 }

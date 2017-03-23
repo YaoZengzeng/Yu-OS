@@ -23,6 +23,7 @@ umain(int argc, char **argv)
 {
 	int r, f, i;
 	struct Stat st;
+	char buf[512];
 
 	// We open files manually first, to avoid the FD layer
 	if ((r = xopen("/not-found", O_RDONLY)) < 0 && r != -E_NOT_FOUND) {
@@ -46,4 +47,13 @@ umain(int argc, char **argv)
 		panic("file_stat returned size %d wanted %d\n", st.st_size, strlen(msg));
 	}
 	cprintf("file_stat is good\n");
+
+	memset(buf, 0, sizeof(buf));
+	if ((r = devfile.dev_read(FVA, buf, sizeof(buf))) < 0) {
+		panic("file_read failed: %e", r);
+	}
+	if (strcmp(buf, msg) != 0) {
+		panic("file_read returned wrong data");
+	}
+	cprintf("file_read is good\n");
 }

@@ -15,6 +15,7 @@ struct Stat;
 struct Dev {
 	int dev_id;
 	int (*dev_stat)(struct Fd *fd, struct Stat *stat);
+	ssize_t (*dev_read)(struct Fd *fd, void *buf, size_t len);
 };
 
 struct FdFile {

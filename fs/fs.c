@@ -371,6 +371,35 @@ file_open(const char *path, struct File **pf)
 	return walk_path(path, 0, pf, 0);
 }
 
+// Read count bytes from f into buf, starting from seek position
+// offset. This meant to mimic the standard pread function.
+// Returns the number of bytes read, < 0 on error.
+ssize_t
+file_read(struct File *f, void *buf, size_t count, off_t offset)
+{
+	int r, bn;
+	off_t pos;
+	char *blk;
+
+	if (offset >= f->f_size) {
+		return 0;
+	}
+
+	count = MIN(count, f->f_size - offset);
+
+	for (pos = offset; pos < offset + count; ) {
+		if ((r = file_get_block(f, pos / BLKSIZE, &blk)) < 0) {
+			return r;
+		}
+		bn = MIN(BLKSIZE - pos % BLKSIZE, offset + count - pos);
+		memmove(buf, blk + pos % BLKSIZE, bn);
+		pos += bn;
+		buf += bn;
+	}
+
+	return count;
+}
+
 // Remove a block from file f. If it's not there, just silently succeed.
 // Returns 0 on success, < 0 on error.
 static int

@@ -59,6 +59,8 @@ struct Super {
 // Definitions for requests from clients to file system
 enum {
 	FSREQ_OPEN = 1,
+	// Read returns a Fsret_read on the request page
+	FSREQ_READ,
 	// Stat returns a Fsret_stat on the request page
 	FSREQ_STAT,
 };
@@ -68,6 +70,13 @@ union Fsipc {
 		char req_path[MAXPATHLEN];
 		int req_omode;
 	} open;
+	struct Fsreq_read {
+		int req_fileid;
+		size_t req_n;
+	} read;
+	struct Fsret_read {
+		char ret_buf[PGSIZE];
+	} readRet;
 	struct Fsreq_stat {
 		int req_fileid;
 	} stat;

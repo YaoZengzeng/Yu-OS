@@ -32,6 +32,7 @@ int file_get_block(struct File *f, uint32_t file_blockno, char **pblk);
 void file_flush(struct File *f);
 int file_set_size(struct File *f, off_t newsize);
 int file_create(const char *path, struct File **f);
+ssize_t file_read(struct File *f, void *buf, size_t count, off_t offset);
 
 /* int map_block(uint32_t); */
 bool block_is_free(uint32_t blockno);
