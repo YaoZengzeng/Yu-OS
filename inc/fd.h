@@ -8,9 +8,13 @@
 #include <inc/types.h>
 #include <inc/fs.h>
 
+struct Fd;
+struct Stat;
+
 // Per-device-class file descriptor operations
 struct Dev {
 	int dev_id;
+	int (*dev_stat)(struct Fd *fd, struct Stat *stat);
 };
 
 struct FdFile {
@@ -25,6 +29,13 @@ struct Fd {
 		// File server files
 		struct FdFile fd_file;
 	};
+};
+
+struct Stat {
+	char st_name[MAXNAMELEN];
+	off_t st_size;
+	int st_isdir;
+	struct Dev *st_dev;
 };
 
 extern struct Dev devfile;

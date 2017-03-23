@@ -82,6 +82,20 @@ openfile_alloc(struct OpenFile **o)
 	return -E_MAX_OPEN;
 }
 
+// Look up an open file for envid.
+int
+openfile_lookup(envid_t envid, uint32_t fileid, struct OpenFile **po)
+{
+	struct OpenFile *o;
+
+	o = &opentab[fileid % MAXOPEN];
+	if (pageref(o->o_fd) <= 1 || o->o_fileid != fileid) {
+		return -E_INVAL;
+	}
+	*po = o;
+	return 0;
+}
+
 // Open req->req_path in mode req->req_omode, storing the Fd page and
 // permissions to return to the calling environment in *pg_store and
 // *perm_store respectively.
@@ -170,6 +184,39 @@ try_open:
 	return 0;
 }
 
+// Stat ipc->stat.req_fileid. Return the file's struct Stat to the
+// caller in ipc->statRet.
+int
+serve_stat(envid_t envid, union Fsipc *ipc)
+{
+	struct Fsreq_stat *req = &ipc->stat;
+	struct Fsret_stat *ret = &ipc->statRet;
+	struct OpenFile *o;
+	int r;
+
+	if (debug) {
+		cprintf("serve_stat %08x %08x\n", envid, req->req_fileid);
+	}
+
+	if ((r = openfile_lookup(envid, req->req_fileid, &o)) < 0) {
+		return r;
+	}
+
+	strcpy(ret->ret_name, o->o_file->f_name);
+	ret->ret_size = o->o_file->f_size;
+	ret->ret_isdir = (o->o_file->f_type == FTYPE_DIR);
+	return 0;
+}
+
+typedef int (*fshandler)(envid_t envid, union Fsipc *req);
+
+fshandler handlers[] = {
+	// Open is handled specially because it passes pages
+	/* [FSREQ_OPEN] = (fshandler)serve_open, */
+	[FSREQ_STAT] = 		serve_stat
+};
+#define NHANDLERS (sizeof(handlers)/sizeof(handlers[0]))
+
 void
 serve(void)
 {
@@ -194,6 +241,8 @@ serve(void)
 		pg = NULL;
 		if (req == FSREQ_OPEN) {
 			r = serve_open(whom, (struct Fsreq_open*)fsreq, &pg, &perm);
+		} else if (req < NHANDLERS && handlers[req]) {
+			r = handlers[req](whom, fsreq);
 		} else {
 			cprintf("Invalid request code %d from %08x\n", req, whom);
 			r = -E_INVAL;

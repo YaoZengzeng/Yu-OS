@@ -59,6 +59,8 @@ struct Super {
 // Definitions for requests from clients to file system
 enum {
 	FSREQ_OPEN = 1,
+	// Stat returns a Fsret_stat on the request page
+	FSREQ_STAT,
 };
 
 union Fsipc {
@@ -66,6 +68,14 @@ union Fsipc {
 		char req_path[MAXPATHLEN];
 		int req_omode;
 	} open;
+	struct Fsreq_stat {
+		int req_fileid;
+	} stat;
+	struct Fsret_stat {
+		char ret_name[MAXNAMELEN];
+		off_t ret_size;
+		int ret_isdir;
+	} statRet;
 
 	// Ensure Fsipc is one page
 	char _pad[PGSIZE];
