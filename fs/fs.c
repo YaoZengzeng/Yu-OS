@@ -481,3 +481,34 @@ file_flush(struct File *f)
 		flush_block(diskaddr(f->f_indirect));
 	}
 }
+
+// Write count bytes from buf into f, starting at seek position
+// offset. This is meant to mimic the standard pwrite funcion.
+// Extends the file if necessary.
+// Returns the number of bytes written, < 0 on error.
+int
+file_write(struct File *f, const void *buf, size_t count, off_t offset)
+{
+	int r, bn;
+	off_t pos;
+	char *blk;
+
+	// Extend file if necessary
+	if (offset + count > f->f_size) {
+		if ((r = file_set_size(f, offset + count)) < 0) {
+			return r;
+		}
+	}
+
+	for (pos = offset; pos < offset + count; ) {
+		if ((r = file_get_block(f, pos / BLKSIZE, &blk)) < 0) {
+			return r;
+		}
+		bn = MIN(BLKSIZE - pos % BLKSIZE, offset + count - pos);
+		memmove(blk + pos % BLKSIZE, buf, bn);
+		pos += bn;
+		buf += bn;
+	}
+
+	return count;
+}

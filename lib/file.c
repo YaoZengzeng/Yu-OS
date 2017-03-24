@@ -33,13 +33,15 @@ fsipc(unsigned type, void *dstva)
 static int devfile_flush(struct Fd *fd);
 static int devfile_stat(struct Fd *fd, struct Stat *stat);
 static ssize_t devfile_read(struct Fd *fd, void *buf, size_t n);
+static ssize_t devfile_write(struct Fd *fd, const void *buf, size_t n);
 
 struct Dev devfile =
 {
 	.dev_id = 'f',
 	.dev_stat = devfile_stat,
 	.dev_read = devfile_read,
-	.dev_close = devfile_flush
+	.dev_close = devfile_flush,
+	.dev_write = devfile_write
 };
 
 
@@ -96,4 +98,23 @@ devfile_flush(struct Fd *fd)
 {
 	fsipcbuf.flush.req_fileid = fd->fd_file.id;
 	return fsipc(FSREQ_FLUSH, NULL);
+}
+
+// Write at most 'n' bytes from 'buf' to 'fd' at the current seek position.
+//
+// Returns:
+//	The number of bytes successfully written.
+//	< 0 on error.
+static ssize_t
+devfile_write(struct Fd *fd, const void *buf, size_t n)
+{
+	// Make an FSREQ_WRITE request to the file system server. Be
+	// careful: fsipcbuf.write.req_buf is only so large, but
+	// remember that write is always allowed to write *fewer*
+	// bytes than requested.
+	fsipcbuf.write.req_fileid = fd->fd_file.id;
+	fsipcbuf.write.req_n = n;
+	memmove(fsipcbuf.write.req_buf, buf, n);
+
+	return fsipc(FSREQ_WRITE, NULL);
 }

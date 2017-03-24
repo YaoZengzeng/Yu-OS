@@ -219,6 +219,39 @@ serve_read(envid_t envid, union Fsipc *ipc)
 	return r;
 }
 
+// Write req->req_n bytes from req->req_buf to req_fileid, starting at
+// the current seek position, and update the seek position
+// accordingly. Extend the file if necessary. Returns the number of
+// bytes written, or < 0 on error.
+int
+serve_write(envid_t envid, struct Fsreq_write *req)
+{
+	struct OpenFile *o;
+	off_t offset;
+	size_t count;
+	int r;
+
+	if (debug) {
+		cprintf("serve_write %08x %08x %08x\n", envid, req->req_fileid, req->req_n);
+	}
+
+	if ((r = openfile_lookup(envid, req->req_fileid, &o)) < 0) {
+		return r;
+	}
+
+	offset = o->o_fd->fd_offset;
+	count = req->req_n;
+
+	if ((r = file_write(o->o_file, req->req_buf, count, offset)) < 0) {
+		return r;
+	}
+
+	// update offset in fd
+	o->o_fd->fd_offset += r;
+
+	return r;
+}
+
 // Stat ipc->stat.req_fileid. Return the file's struct Stat to the
 // caller in ipc->statRet.
 int
@@ -268,7 +301,8 @@ fshandler handlers[] = {
 	/* [FSREQ_OPEN] = (fshandler)serve_open, */
 	[FSREQ_STAT] = 		serve_stat,
 	[FSREQ_READ] = 		serve_read,
-	[FSREQ_FLUSH] = 	(fshandler)serve_flush
+	[FSREQ_FLUSH] = 	(fshandler)serve_flush,
+	[FSREQ_WRITE] = 	(fshandler)serve_write
 };
 #define NHANDLERS (sizeof(handlers)/sizeof(handlers[0]))
 

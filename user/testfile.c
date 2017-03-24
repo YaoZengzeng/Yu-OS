@@ -23,6 +23,7 @@ umain(int argc, char **argv)
 {
 	int r, f, i;
 	struct Stat st;
+	struct Fd fdcopy;
 	char buf[512];
 
 	// We open files manually first, to avoid the FD layer
@@ -61,4 +62,40 @@ umain(int argc, char **argv)
 		panic("file_close failed: %e", r);
 	}
 	cprintf("file_close is good\n");
+
+	// We're about to unmap the FD, but still need a way to get
+	// the stale filenum to serve_read, so we make a local copy.
+	// The file server won't think it's stale until we unmap the
+	// FD page.
+	fdcopy = *FVA;
+	sys_page_unmap(0, FVA);
+
+	if ((r = devfile.dev_read(&fdcopy, buf, sizeof(buf))) != -E_INVAL) {
+		panic("serve_read does not handle stale fileids correctly: %e", r);
+	}
+	cprintf("stale fileid is good\n");
+
+	// Try writing
+	if ((r = xopen("/new-file", O_RDWR|O_CREAT)) < 0) {
+		panic("serve_open /new-file: %e", r);
+	}
+
+	if ((r = devfile.dev_write(FVA, msg, strlen(msg))) != strlen(msg)) {
+		panic("file_write: %e", r);
+	}
+	cprintf("file_write is good\n");
+
+	FVA->fd_offset = 0;
+	memset(buf, 0, sizeof(buf));
+	if ((r = devfile.dev_read(FVA, buf, sizeof(buf))) < 0) {
+		panic("file_read after file_write failed: %e", r);
+	}
+	if (r != strlen(msg)) {
+		panic("file_read after file_write returned wrong length: %d", r);
+	}
+	if (strcmp(buf, msg) != 0) {
+		panic("file_read after file_write returned wrong data");
+	}
+	cprintf("file_read after file_write is good\n");
+
 }

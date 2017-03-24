@@ -61,6 +61,7 @@ enum {
 	FSREQ_OPEN = 1,
 	// Read returns a Fsret_read on the request page
 	FSREQ_READ,
+	FSREQ_WRITE,
 	// Stat returns a Fsret_stat on the request page
 	FSREQ_STAT,
 	FSREQ_FLUSH,
@@ -78,6 +79,11 @@ union Fsipc {
 	struct Fsret_read {
 		char ret_buf[PGSIZE];
 	} readRet;
+	struct Fsreq_write {
+		int req_fileid;
+		size_t req_n;
+		char req_buf[PGSIZE - (sizeof(int) + sizeof(size_t))];
+	} write;
 	struct Fsreq_stat {
 		int req_fileid;
 	} stat;
