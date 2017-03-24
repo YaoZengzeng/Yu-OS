@@ -72,6 +72,9 @@ envid_t ipc_find_env(enum EnvType type);
 #define PTE_SHARE	0x400
 envid_t fork(void);
 
+// file.c
+int open(const char *path, int mode);
+
 // pageref.c
 int pageref(void *addr);
 

@@ -44,6 +44,51 @@ struct Dev devfile =
 	.dev_write = devfile_write
 };
 
+// Open a file (or directory).
+//
+// Returns:
+//	The file descriptor index on success
+//	-E_BAD_PATH if the path is too long (>=MAXPATHLEN)
+//	< 0 for other errors.
+int
+open(const char *path, int mode)
+{
+	// Find an unused file descriptor page using fd_alloc.
+	// The send a file-open request to the file server.
+	// Include 'path' and 'omode' in request,
+	// and map the returned file descriptor page
+	// at the appropriate fd address.
+	// FSREQ_OPEN returns 0 on success, < 0 on failure.
+	//
+	// (fd_alloc does not allocate a page, it just returns an
+	// unused fd address)
+	//
+	// Return the file descriptor index.
+	// If any step after fd_alloc fails, use fd_close to free the
+	// file descriptor.
+
+	int r;
+	struct Fd *fd;
+
+	if (strlen(path) >= MAXPATHLEN) {
+		return -E_BAD_PATH;
+	}
+
+	if ((r = fd_alloc(&fd)) < 0) {
+		return r;
+	}
+
+	strcpy(fsipcbuf.open.req_path, path);
+	fsipcbuf.open.req_omode = mode;
+
+	if ((r = fsipc(FSREQ_OPEN, fd)) < 0) {
+		fd_close(fd, 0);
+		return r;
+	}
+
+	return fd2num(fd);
+}
+
 
 static int
 devfile_stat(struct Fd *fd, struct Stat *st)

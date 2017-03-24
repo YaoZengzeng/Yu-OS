@@ -23,6 +23,7 @@ umain(int argc, char **argv)
 {
 	int r, f, i;
 	struct Stat st;
+	struct Fd *fd;
 	struct Fd fdcopy;
 	char buf[512];
 
@@ -98,4 +99,33 @@ umain(int argc, char **argv)
 	}
 	cprintf("file_read after file_write is good\n");
 
+	// Now we'll try out open
+	if ((r = open("/not-found", O_RDONLY)) < 0 && r != -E_NOT_FOUND) {
+		panic("open /not-found failed: %e", r);
+	} else if (r >= 0) {
+		panic("open /not-found succeeded!");
+	}
+
+	if ((r = open("/newmotd", O_RDONLY)) < 0) {
+		panic("open /newmotd failed: %e", r);
+	}
+	fd = (struct Fd*) (0xD0000000 + r*PGSIZE);
+	if (fd->fd_dev_id != 'f' || fd->fd_offset != 0 || fd->fd_omode != O_RDONLY) {
+		panic("open did not fill struct Fd correctly\n");
+	}
+	cprintf("open is good\n");
+
+	// Try files with indirect blocks
+	if ((f = open("/big", O_WRONLY | O_CREAT)) < 0) {
+		panic("create /big: %e", f);
+	}
+	memset(buf, 0, sizeof(buf));
+	for (i = 0; i < (NDIRECT*3)*BLKSIZE; i += sizeof(buf)) {
+		*(int*)buf = i;
+		if ((r = write(f, buf, sizeof(buf))) < 0) {
+			panic("write /big@%d: %e", i, r);
+		}
+	}
+	close(f);
+	
 }

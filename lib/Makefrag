@@ -9,7 +9,8 @@ LIB_SRCFILES :=	lib/libmain.c \
 			lib/fork.c \
 			lib/ipc.c \
 			lib/pageref.c \
-			lib/file.c
+			lib/file.c \
+			lib/fd.c
 
 LIB_SRCFILES := $(LIB_SRCFILES) \
 			lib/pgfault.c \
