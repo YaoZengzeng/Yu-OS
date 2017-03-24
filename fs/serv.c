@@ -243,13 +243,32 @@ serve_stat(envid_t envid, union Fsipc *ipc)
 	return 0;
 }
 
+// Flush all data and metadata of req->req_fileid to disk.
+int
+serve_flush(envid_t envid, struct Fsreq_flush *req)
+{
+	struct OpenFile *o;
+	int r;
+
+	if (debug) {
+		cprintf("serve_flush %08x %08x\n", envid, req->req_fileid);
+	}
+
+	if ((r = openfile_lookup(envid, req->req_fileid, &o)) < 0) {
+		return r;
+	}
+	file_flush(o->o_file);
+	return 0;
+}
+
 typedef int (*fshandler)(envid_t envid, union Fsipc *req);
 
 fshandler handlers[] = {
 	// Open is handled specially because it passes pages
 	/* [FSREQ_OPEN] = (fshandler)serve_open, */
 	[FSREQ_STAT] = 		serve_stat,
-	[FSREQ_READ] = 		serve_read
+	[FSREQ_READ] = 		serve_read,
+	[FSREQ_FLUSH] = 	(fshandler)serve_flush
 };
 #define NHANDLERS (sizeof(handlers)/sizeof(handlers[0]))
 

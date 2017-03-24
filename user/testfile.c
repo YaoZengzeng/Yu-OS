@@ -56,4 +56,9 @@ umain(int argc, char **argv)
 		panic("file_read returned wrong data");
 	}
 	cprintf("file_read is good\n");
+
+	if ((r = devfile.dev_close(FVA)) < 0) {
+		panic("file_close failed: %e", r);
+	}
+	cprintf("file_close is good\n");
 }

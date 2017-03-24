@@ -30,6 +30,7 @@ fsipc(unsigned type, void *dstva)
 	return ipc_recv(NULL, dstva, NULL);
 }
 
+static int devfile_flush(struct Fd *fd);
 static int devfile_stat(struct Fd *fd, struct Stat *stat);
 static ssize_t devfile_read(struct Fd *fd, void *buf, size_t n);
 
@@ -37,7 +38,8 @@ struct Dev devfile =
 {
 	.dev_id = 'f',
 	.dev_stat = devfile_stat,
-	.dev_read = devfile_read
+	.dev_read = devfile_read,
+	.dev_close = devfile_flush
 };
 
 
@@ -79,4 +81,19 @@ devfile_read(struct Fd *fd, void *buf, size_t n)
 	assert(r <= PGSIZE);
 	memmove(buf, fsipcbuf.readRet.ret_buf, r);
 	return r;
+}
+
+// Flush the file descriptor. After this the fileid is invalid.
+//
+// This function is called by fd_close. fd_close will take care of
+// unmapping the FD page from this environment. Since the server uses
+// the reference counts on the FD pages to detect which files are
+// open, unmapping it is enough to free up server-side resources.
+// Other than that, we just have to make sure our changes are flushed
+// to disk.
+static int
+devfile_flush(struct Fd *fd)
+{
+	fsipcbuf.flush.req_fileid = fd->fd_file.id;
+	return fsipc(FSREQ_FLUSH, NULL);
 }

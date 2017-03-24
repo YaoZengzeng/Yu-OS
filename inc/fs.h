@@ -63,6 +63,7 @@ enum {
 	FSREQ_READ,
 	// Stat returns a Fsret_stat on the request page
 	FSREQ_STAT,
+	FSREQ_FLUSH,
 };
 
 union Fsipc {
@@ -85,6 +86,9 @@ union Fsipc {
 		off_t ret_size;
 		int ret_isdir;
 	} statRet;
+	struct Fsreq_flush {
+		int req_fileid;
+	} flush;
 
 	// Ensure Fsipc is one page
 	char _pad[PGSIZE];
