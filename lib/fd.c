@@ -134,3 +134,79 @@ dev_lookup(int dev_id, struct Dev **dev)
 	*dev = 0;
 	return -E_INVAL;
 }
+
+int
+close(int fdnum)
+{
+	struct Fd *fd;
+	int r;
+
+	if ((r = fd_lookup(fdnum, &fd)) < 0) {
+		return r;
+	} else {
+		return fd_close(fd, 1);
+	}
+}
+
+ssize_t
+read(int fdnum, void *buf, size_t n)
+{
+	int r;
+	struct Dev *dev;
+	struct Fd *fd;
+
+	if ((r = fd_lookup(fdnum, &fd)) < 0
+		|| (r = dev_lookup(fd->fd_dev_id, &dev)) < 0) {
+		return r;
+	}
+	if ((fd->fd_omode & O_ACCMODE) == O_WRONLY) {
+		cprintf("[%08x] read %d -- bad mode\n", thisenv->env_id, fdnum);
+		return -E_INVAL;
+	}
+	if (!dev->dev_read) {
+		return -E_NOT_SUPP;
+	}
+	return (*dev->dev_read)(fd, buf, n);
+}
+
+ssize_t
+readn(int fdnum, void *buf, size_t n)
+{
+	int m, tot;
+
+	for (tot = 0; tot < n; tot += m) {
+		m = read(fdnum, (char*)buf + tot, n - tot);
+		if (m < 0) {
+			return m;
+		}
+		if (m == 0) {
+			break;
+		}
+	}
+	return tot;
+}
+
+ssize_t
+write(int fdnum, const void *buf, size_t n)
+{
+	int r;
+	struct Dev *dev;
+	struct Fd *fd;
+
+	if ((r = fd_lookup(fdnum, &fd)) < 0
+		|| (r = dev_lookup(fd->fd_dev_id, &dev)) < 0) {
+		return r;
+	}
+	if ((fd->fd_omode & O_ACCMODE) == O_RDONLY) {
+		cprintf("[%08x] write %d -- bad mode\n", thisenv->env_id, fdnum);
+		return -E_INVAL;
+	}
+	if (debug) {
+		cprintf("write %d %p %d via dev %s\n",
+			fdnum, buf, n, dev->dev_name);
+	}
+	if (!dev->dev_write) {
+		return -E_NOT_SUPP;
+	}
+	return (*dev->dev_write)(fd, buf, n);
+}

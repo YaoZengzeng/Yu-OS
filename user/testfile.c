@@ -120,7 +120,7 @@ umain(int argc, char **argv)
 		panic("create /big: %e", f);
 	}
 	memset(buf, 0, sizeof(buf));
-	for (i = 0; i < (NDIRECT*3)*BLKSIZE; i += sizeof(buf)) {
+	for (i = 0; i < (NDIRECT * 3) * BLKSIZE; i += sizeof(buf)) {
 		*(int*)buf = i;
 		if ((r = write(f, buf, sizeof(buf))) < 0) {
 			panic("write /big@%d: %e", i, r);
@@ -128,4 +128,23 @@ umain(int argc, char **argv)
 	}
 	close(f);
 	
+	if ((r = open("/big", O_RDONLY)) < 0) {
+		panic("open /big: %e", f);
+	}
+	for (i = 0; i < (NDIRECT * 3) * BLKSIZE; i += sizeof(buf)) {
+		*(int*)buf = i;
+		if ((r = readn(f, buf, sizeof(buf))) < 0) {
+			panic("read /big@%d: %e", i, r);
+		}
+		if (r != sizeof(buf)) {
+			panic("read /big from %d returned %d < %d bytes",
+					i, r, sizeof(buf));
+		}
+		if (*(int*)buf != i) {
+			panic("read /big from %d returned bad data %d",
+				i, *(int*)buf);
+		}
+	}
+	close(f);
+	cprintf("large file is good\n");
 }

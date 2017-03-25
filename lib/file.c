@@ -2,7 +2,7 @@
 #include <inc/string.h>
 #include <inc/lib.h>
 
-#define debug 1
+#define debug 0
 
 union Fsipc fsipcbuf __attribute__((aligned(PGSIZE)));
 
@@ -38,6 +38,7 @@ static ssize_t devfile_write(struct Fd *fd, const void *buf, size_t n);
 struct Dev devfile =
 {
 	.dev_id = 'f',
+	.dev_name = "file",
 	.dev_stat = devfile_stat,
 	.dev_read = devfile_read,
 	.dev_close = devfile_flush,
