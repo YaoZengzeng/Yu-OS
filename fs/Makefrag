@@ -6,7 +6,8 @@ FSOFILES := $(OBJDIR)/fs/serv.o \
 
 FSIMGTXTFILES := 	fs/newmotd
 
-USERAPPS := $(OBJDIR)/user/hello
+USERAPPS := $(OBJDIR)/user/hello \
+			$(OBJDIR)/user/testpteshare
 
 FSIMGFILES := $(FSIMGTXTFILES) $(USERAPPS)
 

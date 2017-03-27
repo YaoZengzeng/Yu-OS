@@ -90,6 +90,9 @@ int pageref(void *addr);
 envid_t spawn(const char *program, const char **argv);
 envid_t spawnl(const char *program, const char *arg0, ...);
 
+// wait.c
+void wait(envid_t env);
+
 /* File open modes */
 #define O_RDONLY	0x0000	/* open for reading only */
 #define O_WRONLY	0x0001	/* open for writing only */

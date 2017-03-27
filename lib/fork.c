@@ -73,22 +73,28 @@ static int
 duppage(envid_t envid, unsigned pn)
 {
 	int r;
-	if ((uvpt[pn] & PTE_W) || (uvpt[pn] & PTE_COW)) {
+	if (uvpt[pn] & PTE_SHARE) {
+		r = sys_page_map(0, (void*)(pn*PGSIZE), envid, (void*)(pn*PGSIZE), uvpt[pn] & PTE_SYSCALL);
+		if (r != 0) {
+			panic("duppage sys_page_map 0 failed");
+			return r;
+		}
+	} else if ((uvpt[pn] & PTE_W) || (uvpt[pn] & PTE_COW)) {
 		// Must map envid's page first, otherwise something tricky will happen
 		r = sys_page_map(0, (void*)(pn*PGSIZE), envid, (void*)(pn*PGSIZE), PTE_P | PTE_U | PTE_COW);
 		if (r != 0) {
-			panic("duppage sys_page_map 2 failed");
+			panic("duppage sys_page_map 1 failed");
 			return r;
 		}
 		r = sys_page_map(0, (void*)(pn*PGSIZE), 0, (void*)(pn*PGSIZE), PTE_P | PTE_U | PTE_COW);
 		if (r != 0) {
-			panic("duppage sys_page_map 1 failed");
+			panic("duppage sys_page_map 2 failed");
 			return r;
 		}
 	} else {
 		r = sys_page_map(0, (void*)(pn*PGSIZE), envid, (void*)(pn*PGSIZE), PTE_P | PTE_U);
 		if (r != 0) {
-			panic("duppage sys_page_map 3 failed");
+			panic("duppage sys_page_map 3 failed: %e", r);
 			return r;
 		}
 	}
@@ -140,12 +146,15 @@ fork(void)
 
 	// We're the parent.
 	// Eagerly copy-on-write our entire address space into the child.
-	for (addr = (uint8_t*) UTEXT; addr < end; addr += PGSIZE) {
+	for (addr = 0; addr < (uint8_t *) UTOP; addr += PGSIZE) {
+		if (addr == (uint8_t *)(UXSTACKTOP - PGSIZE)) {
+			continue;
+		}
+		if (!(uvpd[PDX(addr)] & PTE_P) || !(uvpt[PGNUM(addr)] & PTE_P)) {
+			continue;
+		}
 		duppage(envid, (unsigned)addr/PGSIZE);
 	}
-
-	// Also copy the stack we are currently running on
-	duppage(envid, (unsigned)ROUNDDOWN(&addr, PGSIZE)/PGSIZE);
 
 	// Allocate a new page for the child's user exception stack
 	if ((r = sys_page_alloc(envid, (void*)(UXSTACKTOP - PGSIZE), PTE_P | PTE_W | PTE_U)) < 0) {

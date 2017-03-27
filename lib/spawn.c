@@ -7,6 +7,7 @@
 static int init_stack(envid_t child, const char **argv, uintptr_t *init_esp);
 static int map_segment(envid_t child, uintptr_t va, size_t memsz,
 					int fd, size_t filesz, off_t fileoffset, int perm);
+static int copy_shared_pages(envid_t child);
 
 // Spawn a child process from a program image loaded from the file system.
 // prog: the pathname of the program to run.
@@ -127,9 +128,9 @@ spawn(const char *prog, const char **argv)
 	fd = -1;
 
 	// Copy shared library state.
-/*	if ((r = copy_shared_pages(child)) < 0) {
+	if ((r = copy_shared_pages(child)) < 0) {
 		panic("copy_shared_pages failed: %e", r);
-	}*/
+	}
 
 	if ((r = sys_env_set_trapframe(child, &child_tf)) < 0) {
 		panic("In spawn sys_env_set_trapframe failed: %e", r);
@@ -305,5 +306,24 @@ map_segment(envid_t child, uintptr_t va, size_t memsz,
 			sys_page_unmap(0, UTEMP);
 		}
 	}
+	return 0;
+}
+
+// Copy the mappings for shared pages into the child address space.
+static int
+copy_shared_pages(envid_t child)
+{
+	int r;
+	void *addr;
+
+	for (addr = 0; addr < (void *) UTOP; addr += PGSIZE)	{
+		if ((uvpd[PDX(addr)] & PTE_P) && (uvpt[PGNUM(addr)] & PTE_SHARE)) {
+			if ((r = sys_page_map(0, (void *)addr, child, (void *)addr, 
+					uvpt[PGNUM(addr)] & PTE_SYSCALL)) < 0) {
+				return r;
+			}
+		}
+	}
+
 	return 0;
 }

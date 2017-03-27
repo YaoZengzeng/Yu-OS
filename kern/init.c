@@ -50,12 +50,11 @@ i386_init(void)
 	ENV_CREATE(fs_fs, ENV_TYPE_FS);
 //	ENV_CREATE(user_testfile, ENV_TYPE_USER);
 //	ENV_CREATE(user_sendpage, ENV_TYPE_USER);
-	ENV_CREATE(user_spawnhello, ENV_TYPE_USER);
-//	cprintf("env_create success\n");
+//	ENV_CREATE(user_spawnhello, ENV_TYPE_USER);
+	ENV_CREATE(user_testpteshare, ENV_TYPE_USER);
 
 	env_run(&envs[0]);
 	env_run(&envs[1]);
-//	cprintf("finish envs[0]");
 
 	// Drop into the kernel monitor.
 	while (1) {
