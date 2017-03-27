@@ -271,7 +271,7 @@ page_fault_handler(struct Trapframe *tf)
 	// Handle kernel-mode page faults.
 
 	if (fault_va >= UTOP) {
-		panic("page_fault_handler fault_va >= UTOP");
+		panic("page_fault_handler fault_va >= UTOP, fault_va is 0x%08x", fault_va);
 		goto fail;
 	}
 

@@ -50,7 +50,8 @@ KERN_BINFILES := 	user/hello	\
 				user/pingpong \
 				user/sendpage \
 				user/testfile \
-				user/spawnhello
+				user/spawnhello \
+				user/testpteshare
 
 KERN_BINFILES += fs/fs
 

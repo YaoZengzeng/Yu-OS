@@ -11,7 +11,8 @@ LIB_SRCFILES :=	lib/libmain.c \
 			lib/pageref.c \
 			lib/file.c \
 			lib/fd.c \
-			lib/spawn.c
+			lib/spawn.c \
+			lib/wait.c
 
 LIB_SRCFILES := $(LIB_SRCFILES) \
 			lib/pgfault.c \

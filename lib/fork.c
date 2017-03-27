@@ -73,22 +73,29 @@ static int
 duppage(envid_t envid, unsigned pn)
 {
 	int r;
-	if ((uvpt[pn] & PTE_W) || (uvpt[pn] & PTE_COW)) {
+	if (uvpt[pn] & PTE_SHARE) {
+		cprintf("uvpt[pn] & PTE_SYSCALL is %08x\n", PGOFF(uvpt[pn]) & PTE_SYSCALL);
+		r = sys_page_map(0, (void*)(pn*PGSIZE), envid, (void*)(pn*PGSIZE), uvpt[pn] & PTE_SYSCALL);
+		if (r != 0) {
+			panic("duppage sys_page_map 0 failed");
+			return r;
+		}
+	} else if ((uvpt[pn] & PTE_W) || (uvpt[pn] & PTE_COW)) {
 		// Must map envid's page first, otherwise something tricky will happen
 		r = sys_page_map(0, (void*)(pn*PGSIZE), envid, (void*)(pn*PGSIZE), PTE_P | PTE_U | PTE_COW);
 		if (r != 0) {
-			panic("duppage sys_page_map 2 failed");
+			panic("duppage sys_page_map 1 failed");
 			return r;
 		}
 		r = sys_page_map(0, (void*)(pn*PGSIZE), 0, (void*)(pn*PGSIZE), PTE_P | PTE_U | PTE_COW);
 		if (r != 0) {
-			panic("duppage sys_page_map 1 failed");
+			panic("duppage sys_page_map 2 failed");
 			return r;
 		}
 	} else {
 		r = sys_page_map(0, (void*)(pn*PGSIZE), envid, (void*)(pn*PGSIZE), PTE_P | PTE_U);
 		if (r != 0) {
-			panic("duppage sys_page_map 3 failed");
+			panic("duppage sys_page_map 3 failed: %e", r);
 			return r;
 		}
 	}
