@@ -6,7 +6,9 @@ FSOFILES := $(OBJDIR)/fs/serv.o \
 
 FSIMGTXTFILES := 	fs/newmotd
 
-FSIMGFILES := $(FSIMGTXTFILES)
+USERAPPS := $(OBJDIR)/user/hello
+
+FSIMGFILES := $(FSIMGTXTFILES) $(USERAPPS)
 
 $(OBJDIR)/fs/%.o: fs/%.c fs/fs.h
 	@echo + cc[USER] $<

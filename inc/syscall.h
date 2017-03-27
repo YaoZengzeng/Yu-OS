@@ -11,6 +11,7 @@ enum {
 	SYS_page_unmap,
 	SYS_exofork,
 	SYS_env_set_status,
+	SYS_env_set_trapframe,
 	SYS_yield,
 	SYS_env_set_pgfault_upcall,
 	SYS_ipc_try_send,

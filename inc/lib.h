@@ -41,6 +41,7 @@ envid_t sys_getenvid(void);
 int sys_env_destroy(envid_t);
 static envid_t sys_exofork(void);
 int sys_env_set_status(envid_t env, int status);
+int sys_env_set_trapframe(envid_t env, struct Trapframe *tf);
 int sys_page_alloc(envid_t env, void *pg, int perm);
 int sys_page_map(envid_t src_env, void *src_pg,
 				envid_t dst_env, void *dst_pg, int perm);
@@ -77,12 +78,17 @@ int close(int fd);
 ssize_t read(int fd, void *buf, size_t nbytes);
 ssize_t write(int fd, const void *buf, size_t nbytes);
 ssize_t readn(int fd, void *buf, size_t nbytes);
+int seek(int fd, off_t offset);
 
 // file.c
 int open(const char *path, int mode);
 
 // pageref.c
 int pageref(void *addr);
+
+// spawn.c
+envid_t spawn(const char *program, const char **argv);
+envid_t spawnl(const char *program, const char *arg0, ...);
 
 /* File open modes */
 #define O_RDONLY	0x0000	/* open for reading only */

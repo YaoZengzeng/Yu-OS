@@ -210,3 +210,17 @@ write(int fdnum, const void *buf, size_t n)
 	}
 	return (*dev->dev_write)(fd, buf, n);
 }
+
+int
+seek(int fdnum, off_t offset)
+{
+	int r;
+	struct Fd *fd;
+
+	if ((r = fd_lookup(fdnum, &fd)) < 0) {
+		return r;
+	}
+	fd->fd_offset = offset;
+
+	return 0;
+}

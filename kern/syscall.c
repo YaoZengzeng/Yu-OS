@@ -120,6 +120,30 @@ sys_env_set_status(envid_t envid, int status)
 	return 0;
 }
 
+// Set envid's trap frame to 'tf'.
+// tf is modified to make sure that that user environments always run at code
+// protection level 3 (CPL 3) with interrupts enabled.
+//
+// Returns 0 on success, < 0 on error. Errors are:
+//	-E_BAD_ENV if environment envid doesn't currently exist,
+//		or the caller doesn't have permission to change envid.
+static int
+sys_env_set_trapframe(envid_t envid, struct Trapframe *tf)
+{
+	// Remember to check whether the user has supplied us with a good
+	// address!
+	int r;
+	struct Env *e;
+
+	if ((r = envid2env(envid, &e, 1)) != 0) {
+		return r;
+	}
+
+	e->env_tf = *tf;
+
+	return 0;
+}
+
 // Allocate a page of memory and map it at 'va' with permission
 // 'perm' in the address space of 'envid'.
 // The page's contents are set to 0.
@@ -462,6 +486,9 @@ syscall(uint32_t syscallno, uint32_t a1, uint32_t a2, uint32_t a3, uint32_t a4, 
 
 	case SYS_ipc_recv:
 		return (int32_t)sys_ipc_recv((void *)a1);
+
+	case SYS_env_set_trapframe:
+		return (int32_t)sys_env_set_trapframe((envid_t)a1, (struct Trapframe *) a2);
 
 	default:
 		return -E_NO_SYS;

@@ -48,8 +48,9 @@ i386_init(void)
 //	ENV_CREATE(user_spin, ENV_TYPE_USER);
 //	ENV_CREATE(user_pingpong, ENV_TYPE_USER);
 	ENV_CREATE(fs_fs, ENV_TYPE_FS);
-	ENV_CREATE(user_testfile, ENV_TYPE_USER);
+//	ENV_CREATE(user_testfile, ENV_TYPE_USER);
 //	ENV_CREATE(user_sendpage, ENV_TYPE_USER);
+	ENV_CREATE(user_spawnhello, ENV_TYPE_USER);
 //	cprintf("env_create success\n");
 
 	env_run(&envs[0]);
