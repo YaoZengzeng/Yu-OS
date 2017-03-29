@@ -51,7 +51,8 @@ KERN_BINFILES := 	user/hello	\
 				user/sendpage \
 				user/testfile \
 				user/spawnhello \
-				user/testpteshare
+				user/testpteshare \
+				user/testfdsharing
 
 KERN_BINFILES += fs/fs
 

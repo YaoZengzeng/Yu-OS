@@ -4,7 +4,8 @@ FSOFILES := $(OBJDIR)/fs/serv.o \
 			$(OBJDIR)/fs/bc.o \
 			$(OBJDIR)/fs/test.o
 
-FSIMGTXTFILES := 	fs/newmotd
+FSIMGTXTFILES := 	fs/newmotd \
+					fs/motd
 
 USERAPPS := $(OBJDIR)/user/hello \
 			$(OBJDIR)/user/testpteshare
