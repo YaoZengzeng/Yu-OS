@@ -9,6 +9,7 @@
 #include <kern/sched.h>
 #include <kern/cpu.h>
 #include <kern/picirq.h>
+#include <kern/console.h>
 
 static struct Taskstate ts;
 
@@ -205,6 +206,17 @@ trap_dispatch(struct Trapframe *tf)
 	// interrupt using lapic_eoi() before calling to the scheduler!
 	if (tf->tf_trapno == IRQ_OFFSET + IRQ_TIMER) {
 		lapic_eoi();
+		sched_yield();
+	}
+
+	// Handle keyboard and serial interrupts.
+	if (tf->tf_trapno == IRQ_OFFSET + IRQ_KBD) {
+		kbd_intr();
+		sched_yield();
+	}
+
+	if (tf->tf_trapno == IRQ_OFFSET + IRQ_SERIAL) {
+		serial_intr();
 		sched_yield();
 	}
 

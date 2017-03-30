@@ -6,9 +6,14 @@
 #define MAXFD	32
 // Bottom of file descriptor area
 #define FDTABLE	0xD0000000
+// Bottom of file data area. We reserve one data page for each FD,
+// which devices can use if they choose
+#define FILEDATA (FDTABLE + MAXFD*PGSIZE)
 
 // Return the 'struct Fd*' for file descriptor index i
 #define INDEX2FD(i) ((struct Fd*) (FDTABLE + (i)*PGSIZE))
+// Return the file data page for file descriptor index i
+#define INDEX2DATA(i) ((char*) (FILEDATA + (i)*PGSIZE))
 
 // --------------------------------------------------------------
 // File descriptor manipulators
@@ -18,6 +23,12 @@ int
 fd2num(struct Fd *fd)
 {
 	return ((uintptr_t) fd - FDTABLE) / PGSIZE;
+}
+
+char*
+fd2data(struct Fd *fd)
+{
+	return INDEX2DATA(fd2num(fd));
 }
 
 // Finds the smallest i from 0 to MAXFD-1 that doesn't have
@@ -117,6 +128,7 @@ fd_close(struct Fd *fd, bool must_exist)
 static struct Dev *devtab[] =
 {
 	&devfile,
+	&devcons,
 	0
 };
 
@@ -223,4 +235,44 @@ seek(int fdnum, off_t offset)
 	fd->fd_offset = offset;
 
 	return 0;
+}
+
+// Make file descriptor 'newfdnum' a duplicate of file descriptor 'oldfdnum'.
+// For instance, writing onto either file descriptor will affect the
+// file and the file offset of the other.
+// Close any previously open file descriptor at 'newfdnum'.
+// This is implemented using virtual memory tricks (of course!).
+int
+dup(int oldfdnum, int newfdnum)
+{
+	int r;
+	char *ova, *nva;
+	pte_t pte;
+	struct Fd *oldfd, *newfd;
+
+	if ((r = fd_lookup(oldfdnum, &oldfd)) < 0) {
+		return r;
+	}
+	close(newfdnum);
+
+	newfd = INDEX2FD(newfdnum);
+	ova = fd2data(oldfd);
+	nva = fd2data(newfd);
+
+	if ((uvpd[PDX(ova)] & PTE_P) && (uvpt[PGNUM(ova)] & PTE_P)) {
+		if ((r = sys_page_map(0, ova, 0, nva, uvpt[PGNUM(ova)] & PTE_SYSCALL)) < 0) {
+			goto err;
+		}
+	}
+
+	if ((r = sys_page_map(0, oldfd, 0, newfd, uvpt[PGNUM(oldfd)] & PTE_SYSCALL)) < 0) {
+		goto err;
+	}
+
+	return newfdnum;
+
+err:
+	sys_page_unmap(0, newfd);
+	sys_page_unmap(0, nva);
+	return r;
 }

@@ -42,6 +42,7 @@ struct Stat {
 	struct Dev *st_dev;
 };
 
+char* fd2data(struct Fd *fd);
 int fd2num(struct Fd *fd);
 int fd_alloc(struct Fd **fd_store);
 int fd_close(struct Fd *fd, bool must_exist);
@@ -49,5 +50,6 @@ int fd_lookup(int fdnum, struct Fd **fd_store);
 int dev_lookup(int devid, struct Dev **dev_store);
 
 extern struct Dev devfile;
+extern struct Dev devcons;
 
 #endif /* YUOS_INC_FD_H */

@@ -20,6 +20,8 @@
 #include <inc/fs.h>
 #include <inc/fd.h>
 
+#define USED(x) 	(void)(x)
+
 // main user program
 void umain(int argc, char **argv);
 
@@ -35,8 +37,12 @@ void 	exit(void);
 // pgfault.c
 void set_pgfault_handler(void (*handler)(struct UTrapframe *utf));
 
+// readline.c
+char* readline(const char *buf);
+
 // syscall.c
 void sys_cputs(const char *string, size_t len);
+int sys_cgetc(void);
 envid_t sys_getenvid(void);
 int sys_env_destroy(envid_t);
 static envid_t sys_exofork(void);
@@ -79,6 +85,7 @@ ssize_t read(int fd, void *buf, size_t nbytes);
 ssize_t write(int fd, const void *buf, size_t nbytes);
 ssize_t readn(int fd, void *buf, size_t nbytes);
 int seek(int fd, off_t offset);
+int dup(int oldfd, int newfd);
 
 // file.c
 int open(const char *path, int mode);
@@ -89,6 +96,9 @@ int pageref(void *addr);
 // spawn.c
 envid_t spawn(const char *program, const char **argv);
 envid_t spawnl(const char *program, const char *arg0, ...);
+
+// console.c
+int opencons(void);
 
 // wait.c
 void wait(envid_t env);

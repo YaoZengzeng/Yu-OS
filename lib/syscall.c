@@ -44,6 +44,12 @@ sys_cputs(const char *s, size_t len)
 }
 
 int
+sys_cgetc(void)
+{
+	return syscall(SYS_cgetc, 0, 0, 0, 0, 0, 0);
+}
+
+int
 sys_env_destroy(envid_t envid)
 {
 	return syscall(SYS_env_destroy, 1, envid, 0, 0, 0, 0);

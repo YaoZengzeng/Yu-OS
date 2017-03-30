@@ -25,6 +25,14 @@ sys_cputs(const char *s, size_t len)
 	cprintf("%.*s", len, s);
 }
 
+// Read a character from the system console without blocking.
+// Returns the character, or 0 if there is no input waiting.
+static int
+sys_cgetc(void)
+{
+	return cons_getc();
+}
+
 // Returns the current environment's envid
 static envid_t
 sys_getenvid(void)
@@ -489,6 +497,9 @@ syscall(uint32_t syscallno, uint32_t a1, uint32_t a2, uint32_t a3, uint32_t a4, 
 
 	case SYS_env_set_trapframe:
 		return (int32_t)sys_env_set_trapframe((envid_t)a1, (struct Trapframe *) a2);
+
+	case SYS_cgetc:
+		return (int32_t)sys_cgetc();
 
 	default:
 		return -E_NO_SYS;
