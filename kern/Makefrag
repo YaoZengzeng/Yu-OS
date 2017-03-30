@@ -53,7 +53,8 @@ KERN_BINFILES := 	user/hello	\
 				user/spawnhello \
 				user/testpteshare \
 				user/testfdsharing \
-				user/testkbd
+				user/testkbd \
+				user/icode
 
 KERN_BINFILES += fs/fs
 

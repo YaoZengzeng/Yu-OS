@@ -42,6 +42,14 @@ strcpy(char *dst, const char *src)
 	return ret;
 }
 
+char *
+strcat(char *dst, const char *src)
+{
+	int len = strlen(dst);
+	strcpy(dst + len, src);
+	return dst;
+}
+
 int
 strncmp(const char *p, const char *q, size_t n)
 {

@@ -8,7 +8,8 @@ FSIMGTXTFILES := 	fs/newmotd \
 					fs/motd
 
 USERAPPS := $(OBJDIR)/user/hello \
-			$(OBJDIR)/user/testpteshare
+			$(OBJDIR)/user/testpteshare \
+			$(OBJDIR)/user/init
 
 FSIMGFILES := $(FSIMGTXTFILES) $(USERAPPS)
 
