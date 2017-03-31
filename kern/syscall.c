@@ -9,6 +9,7 @@
 #include <kern/syscall.h>
 #include <kern/console.h>
 #include <kern/sched.h>
+#include <kern/time.h>
 
 // Print a string to the system console.
 // The string is exactly 'len' characters long.
@@ -449,6 +450,13 @@ sys_ipc_recv(void *dstva)
 	return 0;
 }
 
+// Return the current time.
+static int
+sys_time_msec(void)
+{
+	return time_msec();
+}
+
 // Dispatches to the correct kernel function, passing the arguments.
 int32_t
 syscall(uint32_t syscallno, uint32_t a1, uint32_t a2, uint32_t a3, uint32_t a4, uint32_t a5)
@@ -500,6 +508,9 @@ syscall(uint32_t syscallno, uint32_t a1, uint32_t a2, uint32_t a3, uint32_t a4, 
 
 	case SYS_cgetc:
 		return (int32_t)sys_cgetc();
+
+	case SYS_time_msec:
+		return (int32_t)sys_time_msec();
 
 	default:
 		return -E_NO_SYS;

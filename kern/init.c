@@ -8,6 +8,7 @@
 #include <kern/trap.h>
 #include <kern/picirq.h>
 #include <kern/cpu.h>
+#include <kern/time.h>
 
 void
 i386_init(void)
@@ -37,6 +38,9 @@ i386_init(void)
 	// multitasking initialization functions
 	pic_init();
 
+	// hardware initialization functions
+	time_init();
+
 //	ENV_CREATE(user_hello, ENV_TYPE_USER);
 //	ENV_CREATE(user_divzero, ENV_TYPE_USER);
 //	ENV_CREATE(user_dumbfork, ENV_TYPE_USER);
@@ -54,7 +58,8 @@ i386_init(void)
 //	ENV_CREATE(user_testpteshare, ENV_TYPE_USER);
 //	ENV_CREATE(user_testfdsharing, ENV_TYPE_USER);
 //	ENV_CREATE(user_testkbd, ENV_TYPE_USER);
-	ENV_CREATE(user_icode, ENV_TYPE_USER);
+//	ENV_CREATE(user_icode, ENV_TYPE_USER);
+	ENV_CREATE(user_testtime, ENV_TYPE_USER);
 
 	env_run(&envs[0]);
 	env_run(&envs[1]);

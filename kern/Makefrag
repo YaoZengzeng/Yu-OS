@@ -29,6 +29,7 @@ KERN_SRCFILES := kern/entry.S \
 			kern/mpentry.S \
 			kern/mpconfig.c \
 			kern/lapic.c \
+			kern/time.c \
 			lib/printfmt.c \
 			lib/readline.c \
 			lib/string.c
@@ -54,7 +55,8 @@ KERN_BINFILES := 	user/hello	\
 				user/testpteshare \
 				user/testfdsharing \
 				user/testkbd \
-				user/icode
+				user/icode \
+				user/testtime
 
 KERN_BINFILES += fs/fs
 

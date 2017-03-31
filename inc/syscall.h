@@ -16,7 +16,9 @@ enum {
 	SYS_yield,
 	SYS_env_set_pgfault_upcall,
 	SYS_ipc_try_send,
-	SYS_ipc_recv
+	SYS_ipc_recv,
+	SYS_time_msec,
+	NSYSCALLS
 };
 
 #endif /* !YUOS_INC_SYSCALL_H */
