@@ -52,10 +52,15 @@ include lib/Makefrag
 include user/Makefrag
 include fs/Makefrag
 
+PORT7 	:= $(shell expr $(GDBPORT) + 1)
+PORT80	:= $(shell expr $(GDBPORT) + 2)
+
 QEMUOPTS = -hda $(OBJDIR)/kern/kernel.img -serial mon:stdio -gdb tcp::$(GDBPORT)
 QEMUOPTS += -hdb $(OBJDIR)/fs/fs.img
 IMAGES = $(OBJDIR)/kern/kernel.img
 IMAGES += $(OBJDIR)/fs/fs.img
+QEMUOPTS += -net user -net nic,model=e1000 -redir tcp:$(PORT7)::7 \
+		-redir tcp:$(PORT80)::80 -redir udp:$(PORT7)::7
 
 qemu: $(IMAGES) pre-qemu
 	$(QEMU) $(QEMUOPTS)

@@ -30,6 +30,8 @@ KERN_SRCFILES := kern/entry.S \
 			kern/mpconfig.c \
 			kern/lapic.c \
 			kern/time.c \
+			kern/pci.c \
+			kern/e1000.c \
 			lib/printfmt.c \
 			lib/readline.c \
 			lib/string.c

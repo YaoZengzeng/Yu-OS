@@ -9,6 +9,7 @@
 #include <kern/picirq.h>
 #include <kern/cpu.h>
 #include <kern/time.h>
+#include <kern/pci.h>
 
 void
 i386_init(void)
@@ -40,6 +41,7 @@ i386_init(void)
 
 	// hardware initialization functions
 	time_init();
+	pci_init();
 
 //	ENV_CREATE(user_hello, ENV_TYPE_USER);
 //	ENV_CREATE(user_divzero, ENV_TYPE_USER);
