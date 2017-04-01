@@ -10,6 +10,7 @@
 #include <kern/console.h>
 #include <kern/sched.h>
 #include <kern/time.h>
+#include <kern/e1000.h>
 
 // Print a string to the system console.
 // The string is exactly 'len' characters long.
@@ -457,6 +458,50 @@ sys_time_msec(void)
 	return time_msec();
 }
 
+// Send packet to e1000 driver
+// return 0 on success
+// Return -1 on error
+static int
+sys_tx_pkt(struct tx_desc *td)
+{
+	user_mem_assert(curenv, td, sizeof(struct tx_desc), PTE_U);
+
+	user_mem_phy_addr((uintptr_t)(td->addr), (physaddr_t *)&(td->addr));
+
+	while(1) {
+		if (e1000_put_tx_desc(td) == 0) {
+			break;
+		}
+	}
+
+	return 0;
+}
+
+// Get packet from e1000 driver
+// return 0 on success
+// return -1 on error
+static int
+sys_rx_pkt(struct rx_desc *rd)
+{
+	int r;
+
+	user_mem_assert(curenv, rd, sizeof(struct rx_desc), PTE_U);
+
+	struct rx_desc kr = *rd;
+
+	user_mem_phy_addr((uintptr_t)(kr.addr), (physaddr_t*)&(kr.addr));
+
+	if ((r = e1000_get_rx_desc(&kr)) != 0) {
+		return r;
+	}
+
+	user_mem_page_replace(rd->addr, pa2page(kr.addr));
+	kr.addr = rd->addr;
+	*rd = kr;
+
+	return 0;
+}
+
 // Dispatches to the correct kernel function, passing the arguments.
 int32_t
 syscall(uint32_t syscallno, uint32_t a1, uint32_t a2, uint32_t a3, uint32_t a4, uint32_t a5)
@@ -511,6 +556,12 @@ syscall(uint32_t syscallno, uint32_t a1, uint32_t a2, uint32_t a3, uint32_t a4, 
 
 	case SYS_time_msec:
 		return (int32_t)sys_time_msec();
+
+	case SYS_tx_pkt:
+		return sys_tx_pkt((struct tx_desc *) a1);
+
+	case SYS_rx_pkt:
+		return sys_rx_pkt((struct rx_desc *) a1);
 
 	default:
 		return -E_NO_SYS;

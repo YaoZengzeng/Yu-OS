@@ -68,7 +68,7 @@ struct rx_desc {
 };
 
 int pci_e1000_attach(struct pci_func *pcif);
-//int e1000_put_tx_desc(struct tx_desc *td);
-//int e1000_get_rx_desc(struct rx_desc *rd);
+int e1000_put_tx_desc(struct tx_desc *td);
+int e1000_get_rx_desc(struct rx_desc *rd);
 
 #endif /* YUOS_KERN_E1000_H */

@@ -31,6 +31,10 @@ CFLAGS += -Wall -Wno-format -Wno-unused -Werror -gstabs -m32
 # mon_backtrace()'s function prologue on gcc version: (Debin 4.7.2-5) 4.7.2
 CFLAGS += -fno-tree-ch
 
+CFLAGS += -I$(TOP)/net/lwip/include \
+		-I$(TOP)/net/lwip/include/ipv4 \
+		-I$(TOP)/net/lwip/yuos
+
 # Add -fno-stack-protector if the option exists.
 CFLAGS += $(shell $(CC) -fno-stack-protector -E -x c /dev/null >/dev/null 2>&1 && echo -fno-stack-protector)
 
@@ -51,6 +55,7 @@ include kern/Makefrag
 include lib/Makefrag
 include user/Makefrag
 include fs/Makefrag
+include net/Makefrag
 
 PORT7 	:= $(shell expr $(GDBPORT) + 1)
 PORT80	:= $(shell expr $(GDBPORT) + 2)

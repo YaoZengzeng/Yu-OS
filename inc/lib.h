@@ -19,6 +19,8 @@
 #include <inc/syscall.h>
 #include <inc/fs.h>
 #include <inc/fd.h>
+#include <inc/ns.h>
+#include <inc/nete1000.h>
 
 #define USED(x) 	(void)(x)
 
@@ -57,6 +59,8 @@ int sys_env_set_pgfault_upcall(envid_t env, void *upcall);
 int sys_ipc_try_send(envid_t to_env, uint32_t value, void *pg, int perm);
 int sys_ipc_recv(void *rcv_pg);
 unsigned int sys_time_msec(void);
+int sys_tx_pkt(struct tx_desc*);
+int sys_rx_pkt(struct rx_desc*);
 
 // This must be inlined.
 static __inline envid_t __attribute__((always_inline))

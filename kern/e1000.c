@@ -104,3 +104,40 @@ int pci_e1000_attach(struct pci_func *pcif) {
 	*(uint32_t *) rctl = rflag;
 	return 0;
 }
+
+int e1000_put_tx_desc(struct tx_desc *td)
+{
+	struct tx_desc *tt = &tx_desc_table[*e1000_tdt];
+	if (!(tt->status & E1000_TXD_STAT_DD)) {
+		cprintf("transmit descriptor list is full\n");
+		return -1;
+	}
+
+	*tt = *td;
+	tt->cmd |= (E1000_TXD_CMD_RS >> 24);
+
+	*e1000_tdt = (*e1000_tdt + 1) & (NTXDESCS - 1);
+
+	return 0;
+}
+
+int e1000_get_rx_desc(struct rx_desc *rd)
+{
+	int i = (*e1000_rdt + 1) & (NRXDESCS - 1);
+	if (!(rx_desc_table[i].status & E1000_RXD_STAT_DD) || !(rx_desc_table[i].status & E1000_RXD_STAT_EOP)) {
+		cprintf("have not received any packet\n");
+		return -1;
+	}
+
+	struct rx_desc *rr;
+	rr = &rx_desc_table[i];
+
+	uint64_t pa = rd->addr;
+	*rd = *rr;
+	rr->addr = pa;
+	rr->status = 0;
+
+	*e1000_rdt = i;
+
+	return 0;
+}
