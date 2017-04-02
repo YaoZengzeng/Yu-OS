@@ -62,7 +62,8 @@ KERN_BINFILES := 	user/hello	\
 
 KERN_BINFILES += fs/fs
 
-KERN_BINFILES += net/ns
+KERN_BINFILES += net/ns \
+				net/testoutput
 
 KERN_OBJFILES := $(patsubst %.c, $(OBJDIR)/%.o, $(KERN_SRCFILES))
 KERN_OBJFILES := $(patsubst %.S, $(OBJDIR)/%.o, $(KERN_OBJFILES))
