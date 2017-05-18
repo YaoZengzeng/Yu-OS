@@ -55,7 +55,6 @@ include kern/Makefrag
 include lib/Makefrag
 include user/Makefrag
 include fs/Makefrag
-include net/Makefrag
 
 PORT7 	:= $(shell expr $(GDBPORT) + 1)
 PORT80	:= $(shell expr $(GDBPORT) + 2)
